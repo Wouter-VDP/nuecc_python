@@ -6,7 +6,7 @@ import scipy.stats
 mass_p = 0.93827
 min_p_energy = mass_p + 0.04
 min_e_energy = 0.020
-data_samples = ['on', 'off']
+data_samples = ['on', 'off', 'sideband']
 gr = 1.618
 
 phi_ticks = [-np.pi, -np.pi / 2, 0, np.pi / 2, np.pi]

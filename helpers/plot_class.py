@@ -21,7 +21,14 @@ class Plotter:
     gr = 1.618
 
     # Fields for initialisation
-    def __init__(self, data, signal="nue", genie_version="mcc9.1", norm_pot=0):
+    def __init__(self, 
+                 data, 
+                 signal="nue", 
+                 genie_version="mcc9.1", 
+                 norm_pot=0, 
+                 sideband_query = None
+                ):
+                
         self.signal = signal
         if signal == "nue":
             self.dicts = plot_dicts_nue
@@ -30,9 +37,13 @@ class Plotter:
             self.dicts = plot_dicts_numu
             self.cats = [30,31,32]
             
+        beam_on = 'on'    
+        if sideband_query:
+            beam_on = 'sideband'
+            
         else:
             print("Error, unknown signal string, choose nue or numu!")
-        if not all([k in data.keys() for k in ["nu", "on", "off", "dirt"]]):
+        if not all([k in data.keys() for k in ["nu", beam_on, "off", "dirt"]]):
             print("Error, missing samples in the data set!")
             
         weights_field = "weightSplineTimesTune"
@@ -66,10 +77,11 @@ class Plotter:
         if norm_pot==0:
             norm_scale = 1
         else:
-            norm_scale = norm_pot*data["on"]['pot']
-        print('All plots are scaled to {:.2e} POT, Beam_on data corresponds to {:.2e} POT'.format(norm_scale*data["on"]['pot'],
-                                                                                                  data["on"]['pot']))
-        data["on"]["daughters"]["plot_weight"] = norm_scale
+            norm_scale = norm_pot/data[beam_on]['pot']
+        print('All plots are scaled to {:.2e} POT, Beam_on data corresponds to {:.2e} POT'.format(norm_scale*data[beam_on]['pot'],
+                                                                                                  data[beam_on]['pot']))
+        data[beam_on]["daughters"]["plot_weight"] = norm_scale
+        data["off"]["scaling"] = data[beam_on]['E1DCNT_wcut'] / data["off"]["EXT"]
         data["off"]["daughters"]["plot_weight"] = data["off"]["scaling"]*norm_scale
         self.mc_daughters = pd.concat(
             [
@@ -81,10 +93,16 @@ class Plotter:
         )
         # The samples were produced assuming 1e21 as event_scale
         self.mc_daughters["plot_weight"] = (
-            self.mc_daughters["event_scale"]*norm_scale*(data["on"]["pot"]/1e21)*self.mc_daughters[weights_field]
+            self.mc_daughters["event_scale"]*norm_scale*(data[beam_on]["pot"]/1e21)*self.mc_daughters[weights_field]
         )
-        self.on_daughters = data["on"]["daughters"]
+        self.on_daughters = data[beam_on]["daughters"]
         self.off_daughters = data["off"]["daughters"]
+        
+        if sideband_query:
+            self.on_daughters = self.on_daughters.query(sideband_query)
+            self.off_daughters = self.off_daughters.query(sideband_query)
+            self.mc_daughters = self.mc_daughters.query(sideband_query)
+        
         del(data)
         print("Initialisation completed!")
 
@@ -252,6 +270,7 @@ class Plotter:
             bin_err.append(hist_bin_uncertainty(data_i, weight_i, x_min, x_max, edges))
         err_on = hist_bin_uncertainty(plot_data[-1], weights[-1], x_min, x_max, edges)
         err_off = hist_bin_uncertainty(plot_data[-2], weights[-2], x_min, x_max, edges)
+        err_off[err_off==0] = 0.4 * np.mean(weights[-2])
         err_mc = hist_bin_uncertainty(mc_data, mc_weights, x_min, x_max, edges)
         err_comined = np.sqrt(err_off ** 2 + err_mc ** 2)
         widths = edges_mid - edges[:-1]
@@ -562,8 +581,8 @@ def kstest_weighted(data1, data2, wei1, wei2):
     data = np.concatenate([data1, data2])
     cwei1 = np.hstack([0, np.cumsum(wei1) / sum(wei1)])
     cwei2 = np.hstack([0, np.cumsum(wei2) / sum(wei2)])
-    cdf1we = cwei1[[np.searchsorted(data1, data, side="right")]]
-    cdf2we = cwei2[[np.searchsorted(data2, data, side="right")]]
+    cdf1we = cwei1[np.searchsorted(data1, data, side="right")]
+    cdf2we = cwei2[np.searchsorted(data2, data, side="right")]
     d = np.max(np.abs(cdf1we - cdf2we))
     # Note: d absolute not signed distance
     n1 = sum(wei1)
