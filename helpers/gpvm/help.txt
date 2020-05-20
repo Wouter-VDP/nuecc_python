@@ -1,0 +1,22 @@
+1. RunSubrun.py
+Creates the txt files needed for POT counting using zarko's tool
+
+2. ZarkoCaller.py
+Needs to be run using python 2.7. 
+Creates a txt file documenting the POT counting
+
+3. RootLoader.py
+Loads the samples 
+
+4. Merger.py
+Reworks the samples and output to a nu/train sample with correct scaling
+This takes as input the nue/nu/filter/train samples. No single event is lost and easy for plotting.
+The scaling corresponds to 1e21 but can be tuned.
+If we would want to be able to split run1 and run3 for plots, some extra work is needed here.
+
+Note, if the files are in davidc folder, create symlinks: 
+/run3>for FILE in /uboone/data/users/davidc/searchingfornues/v08_00_00_25/cc0pinp/1205/*G*.root; do ln -s "$FILE"; done
+
+Note: pyhomereset, miniconda for uproot env
+
+

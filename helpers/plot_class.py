@@ -36,13 +36,13 @@ class Plotter:
         elif signal == "numu":
             self.dicts = plot_dicts_numu
             self.cats = [30,31,32]
-            
+        else:
+            print("Error, unknown signal string, choose nue or numu!")
+                
         beam_on = 'on'    
         if sideband_query:
             beam_on = 'sideband'
             
-        else:
-            print("Error, unknown signal string, choose nue or numu!")
         if not all([k in data.keys() for k in ["nu", beam_on, "off", "dirt"]]):
             print("Error, missing samples in the data set!")
             
