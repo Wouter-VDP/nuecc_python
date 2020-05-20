@@ -229,6 +229,7 @@ class Plotter:
                     syst_grouper.append(self.dicts.syst_groups_cat[cat])
 
         if (self.signal == "nue") & show_lee:
+            print('Showing LEE model')
             # LEE contribution
             plot_data.append(temp_view.query("leeweight>0.001").eval(field).values)
             weights.append(
@@ -297,16 +298,17 @@ class Plotter:
         if kind == 'syst':
             for k, (lab_i, col_i) in self.dicts.sys_col_labels.items():
                 bin_i = np.sum(np.array(bins[:-2])[np.array(syst_grouper)==k], axis=0)
-                ax[0].bar(
-                        edges_mid,
-                        bin_i,
-                        lw=2,
-                        label=lab_i+": {}".format(int(round(10*sum(bin_i)))/10),
-                        width=2 * widths,
-                        bottom=bottom,
-                        color=col_i,
-                    )
-                bottom += bin_i
+                if sum(bin_i)>0:
+                    ax[0].bar(
+                            edges_mid,
+                            bin_i,
+                            lw=2,
+                            label=lab_i+": {}".format(int(round(10*sum(bin_i)))/10),
+                            width=2 * widths,
+                            bottom=bottom,
+                            color=col_i,
+                        )
+                    bottom += bin_i
             err_comined = syst_fractions*bottom
         else:
             for bin_i, lab_i, col_i in zip(bins[:-2], labels[:-2], colors[:-2]):
