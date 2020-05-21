@@ -7,6 +7,8 @@ from helpers import plot_dicts_numu
 from helpers import helpfunction
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
+import awkward
+import gc
 
 pi = 3.14
 
@@ -21,31 +23,33 @@ class Plotter:
     gr = 1.618
 
     # Fields for initialisation
-    def __init__(self, 
-                 data, 
-                 signal="nue", 
-                 genie_version="mcc9.1", 
-                 norm_pot=0, 
-                 sideband_query = None
-                ):
-                
+    def __init__(
+        self,
+        data,
+        signal="nue",
+        genie_version="mcc9.1",
+        norm_pot=0,
+        sideband_query=None,
+        load_syst=["weightsFlux", "weightsGenie"],
+    ):
+
         self.signal = signal
         if signal == "nue":
             self.dicts = plot_dicts_nue
             self.cats = [1, 10, 11]
         elif signal == "numu":
             self.dicts = plot_dicts_numu
-            self.cats = [30,31,32]
+            self.cats = [30, 31, 32]
         else:
             print("Error, unknown signal string, choose nue or numu!")
-                
-        beam_on = 'on'    
+
+        beam_on = "on"
         if sideband_query:
-            beam_on = 'sideband'
-            
+            beam_on = "sideband"
+
         if not all([k in data.keys() for k in ["nu", beam_on, "off", "dirt"]]):
             print("Error, missing samples in the data set!")
-            
+
         weights_field = "weightSplineTimesTune"
         # Use the Genie v2 model by upweighting.
         if genie_version == "mcc8":
@@ -54,56 +58,105 @@ class Plotter:
             spline_x = np.append(numu_spline["Graph"].__dict__["_fX"], 100)
             spline_y_numu = np.append(numu_spline["Graph"].__dict__["_fY"], 1)
             spline_y_nue = np.append(nue_spline["Graph"].__dict__["_fY"], 1)
-            
-            mask_nu = data["nu"]["daughters"].eval('abs(nu_pdg)==14')
+
+            mask_nu = data["nu"]["daughters"].eval("abs(nu_pdg)==14")
             bins_nu_e = np.digitize(data["nu"]["daughters"]["nu_e"], spline_x)
-            
-            data["nu"]["daughters"]["weightSpline"] = ~mask_nu/spline_y_nue[bins_nu_e] + mask_nu/spline_y_numu[bins_nu_e]
+
+            data["nu"]["daughters"]["weightSpline"] = (
+                ~mask_nu / spline_y_nue[bins_nu_e] + mask_nu / spline_y_numu[bins_nu_e]
+            )
             print(
                 "Using the energy/pdg dependent spline weights as in MCC8 Genie V2 tune1"
             )
             weights_field = "weightSpline"
         if genie_version == "mcc9.0":
-            weights_field = "weightSpline" 
+            weights_field = "weightSpline"
             print("Using the spline weights as in MCC9.0 Genie V3")
         if genie_version == "mcc9.1":
             print("Using the spline weights as in MCC9.1 Genie V3 tune 1")
 
-        
         data["dirt"]["daughters"]["category"] = 7
         data["dirt"]["daughters"]["cat_int"] = 7
-        
+
         # We want to fill the label plot weight to match the norm_pot, if 0, use Beam_on_norm
-        if norm_pot==0:
+        if norm_pot == 0:
             norm_scale = 1
         else:
-            norm_scale = norm_pot/data[beam_on]['pot']
-        print('All plots are scaled to {:.2e} POT, Beam_on data corresponds to {:.2e} POT'.format(norm_scale*data[beam_on]['pot'],
-                                                                                                  data[beam_on]['pot']))
+            norm_scale = norm_pot / data[beam_on]["pot"]
+        print(
+            "All plots are scaled to {:.2e} POT, Beam_on data corresponds to {:.2e} POT".format(
+                norm_scale * data[beam_on]["pot"], data[beam_on]["pot"]
+            )
+        )
+
+        if load_syst:
+            print('Started loading systematic weights.')
+            self.grouper = ["sample", "Run", "event"]
+            self.syst_weights = {}
+            event_scale = awkward.concatenate(
+                [data["nu"]["mc"]["event_scale"], data["dirt"]["mc"]["event_scale"]]
+            )
+            event_weights = awkward.concatenate(
+                [data["nu"]["mc"][weights_field], data["dirt"]["mc"][weights_field]]
+            )
+            plot_weight = (
+                event_scale * norm_scale * (data[beam_on]["pot"] / 1e21) * event_weights
+            )
+            for type_w in load_syst:
+                temp_weights = (
+                    awkward.concatenate(
+                        [data["nu"]["mc"][type_w], data["dirt"]["mc"][type_w]]
+                    )
+                    * plot_weight
+                )
+                matrix_weights = temp_weights[temp_weights.counts > 0].regular()
+                self.syst_weights[type_w] = np.clip(
+                    np.nan_to_num(matrix_weights, nan=1, posinf=1, neginf=1), 0, 100
+                )
+                print('Loaded all universes for {}.'.format(type_w))
+        del data["nu"]["mc"]
+        del data["dirt"]["mc"]
+        gc.collect()
+
         data[beam_on]["daughters"]["plot_weight"] = norm_scale
-        data["off"]["scaling"] = data[beam_on]['E1DCNT_wcut'] / data["off"]["EXT"]
-        data["off"]["daughters"]["plot_weight"] = data["off"]["scaling"]*norm_scale
+        data["off"]["scaling"] = data[beam_on]["E1DCNT_wcut"] / data["off"]["EXT"]
+        data["off"]["daughters"]["plot_weight"] = data["off"]["scaling"] * norm_scale
         self.mc_daughters = pd.concat(
-            [
-                data["nu"]["daughters"],
-                data["dirt"]["daughters"],
-            ],
+            [data["nu"]["daughters"], data["dirt"]["daughters"],],
             copy=False,
             sort=False,
         )
+        print('Loaded all daughter dataframes.')
+
         # The samples were produced assuming 1e21 as event_scale
         self.mc_daughters["plot_weight"] = (
-            self.mc_daughters["event_scale"]*norm_scale*(data[beam_on]["pot"]/1e21)*self.mc_daughters[weights_field]
+            self.mc_daughters["event_scale"]
+            * norm_scale
+            * (data[beam_on]["pot"] / 1e21)
+            * self.mc_daughters[weights_field]
         )
         self.on_daughters = data[beam_on]["daughters"]
         self.off_daughters = data["off"]["daughters"]
-        
+
         if sideband_query:
+            if load_syst:
+                sideband_eval = (
+                    self.mc_daughters.eval(sideband_query)
+                    .groupby(self.grouper, sort=False)
+                    .max()
+                )
+                for type_w in load_syst:
+                    self.syst_weights[type_w] = self.syst_weights[type_w][
+                        sideband_eval
+                    ]
+
             self.on_daughters = self.on_daughters.query(sideband_query)
             self.off_daughters = self.off_daughters.query(sideband_query)
             self.mc_daughters = self.mc_daughters.query(sideband_query)
-        
-        del(data)
+            print('Adapted the plotting data to the sideband query.')
+
+        del data
+        gc.collect()
         print("Initialisation completed!")
 
     # Get the purity of a selection
@@ -120,11 +173,8 @@ class Plotter:
             )
 
         return purity_nom / purity_denom
-    
-    def get_ratio_and_purity(
-        self,
-        query=""
-    ):
+
+    def get_ratio_and_purity(self, query=""):
         mc_weights = sum(self.mc_daughters.query(query)["plot_weight"])
         off_weights = sum(self.off_daughters.query(query)["plot_weight"])
         on_weights = sum(self.on_daughters.query(query)["plot_weight"])
@@ -133,10 +183,13 @@ class Plotter:
         ratio1_err = np.sqrt(mc_weights + off_weights) / mc_weights
         ratio2 = on_weights / (mc_weights + off_weights)
         ratio = [ratio1, ratio2, ratio1_err]
-        
+
         purity = self.get_purity(query, self.cats)
-        return ratio, purity, 
-    
+        return (
+            ratio,
+            purity,
+        )
+
     def plot_panel_data_mc(
         self,
         ax,
@@ -150,10 +203,11 @@ class Plotter:
         legend=True,
         y_max_scaler=1.1,
         kind="cat",
-        show_data = True,
-        syst_fractions = [],
+        show_data=True,
+        show_syst=False,
+        syst_fractions=None,
         y_label="Events per bin",
-        show_lee = True
+        show_lee=True,
     ):
 
         """
@@ -179,7 +233,7 @@ class Plotter:
             dict -- Output of the plot {labels: string, bins: 1d array}
         """
         ratio, purity = self.get_ratio_and_purity(query)
-        
+
         plot_data = []
         weights = []
         labels = []
@@ -205,7 +259,6 @@ class Plotter:
             kind_colors = self.dicts.category_colors
             column_check = "category"
             syst_grouper = []
-            assert(len(syst_fractions)==N_bins)
         else:
             print("Unknown plotting type, please choose from int/pdg/cat")
 
@@ -219,17 +272,19 @@ class Plotter:
             if len(temp_view_cat.index) > 0 and cat != 6:
                 plot_data.append(temp_view_cat.eval(field).values)
                 weights.append(temp_view_cat["plot_weight"].values)
-                
+
                 num_events = sum(weights[-1])
-                precision = int(max(np.floor(np.log10(num_events))+1,2))
-                labels.append(kind_labs[cat] + ": {:#.{prec}g}".format(num_events, prec=precision))
+                precision = int(max(np.floor(np.log10(num_events)) + 1, 2))
+                labels.append(
+                    kind_labs[cat] + ": {:#.{prec}g}".format(num_events, prec=precision)
+                )
                 colors.append(kind_colors[cat])
                 print("MC category:", labels[-1], "\t#entries", len(plot_data[-1]))
-                if kind=="syst":
+                if kind == "syst":
                     syst_grouper.append(self.dicts.syst_groups_cat[cat])
 
         if (self.signal == "nue") & show_lee:
-            print('Showing LEE model')
+            print("Showing LEE model")
             # LEE contribution
             plot_data.append(temp_view.query("leeweight>0.001").eval(field).values)
             weights.append(
@@ -237,7 +292,7 @@ class Plotter:
             )
             labels.append(r"$\nu_e$ LEE" + ": {0:#.2g}".format(sum(weights[-1])))
             colors.append(self.dicts.category_colors[111])
-            if kind=="syst":
+            if kind == "syst":
                 syst_grouper.append(self.dicts.syst_groups_cat[111])
 
         # Off Contribution
@@ -245,7 +300,7 @@ class Plotter:
         plot_data.append(temp_view.eval(field).values)
         weights.append(temp_view["plot_weight"].values)
         num_events = sum(weights[-1])
-        precision = int(max(np.floor(np.log10(num_events))+1,2))
+        precision = int(max(np.floor(np.log10(num_events)) + 1, 2))
         labels.append("BNB Off" + ": {:#.{prec}g}".format(num_events, prec=precision))
         colors.append("grey")
         # On Contribution
@@ -253,7 +308,7 @@ class Plotter:
         plot_data.append(temp_view.eval(field).values)
         weights.append(temp_view["plot_weight"].values)
         labels.append("BNB On" + ": {0:0.0f}".format(sum(weights[-1])))
-        colors.append('k')
+        colors.append("k")
 
         # KS-test
         flattened_MC = np.concatenate(plot_data[:-1]).ravel()
@@ -261,24 +316,24 @@ class Plotter:
         ks_test_d, ks_test_p = kstest_weighted(
             flattened_MC, plot_data[-1], flattened_weights, weights[-1]
         )
-        
+
         # Start binning   hist_bin_uncertainty(data, weights, x_min, x_max, bin_edges)
         edges, edges_mid, bins, max_val = histHelper(
             N_bins, x_min, x_max, plot_data, weights=weights
         )
-        
+
         for data_i, weight_i in zip(plot_data[:-2], weights[:-2]):
             bin_err.append(hist_bin_uncertainty(data_i, weight_i, x_min, x_max, edges))
         err_on = hist_bin_uncertainty(plot_data[-1], weights[-1], x_min, x_max, edges)
         err_off = hist_bin_uncertainty(plot_data[-2], weights[-2], x_min, x_max, edges)
-        err_off[err_off==0] = 0.4 * np.mean(weights[-2])
+        err_off[err_off == 0] = 0.4 * np.mean(weights[-2])
         err_mc = hist_bin_uncertainty(mc_data, mc_weights, x_min, x_max, edges)
-        err_comined = np.sqrt(err_off ** 2 + err_mc ** 2)
+        err_combined2 = err_off ** 2 + err_mc ** 2
         widths = edges_mid - edges[:-1]
-        
+
         bin_err.extend([err_off, err_on])
-        bin_dict = dict(zip(labels, zip(bins,colors,bin_err)))
-        
+        bin_dict = dict(zip(labels, zip(bins, colors, bin_err)))
+
         if show_data:
             # On
             ax[0].errorbar(
@@ -292,24 +347,34 @@ class Plotter:
             )
         # Off
         ax[0].bar(
-            edges_mid, bins[-2], lw=2, label=labels[-2], width=2 * widths, color=colors[-2]
+            edges_mid,
+            bins[-2],
+            lw=2,
+            label=labels[-2],
+            width=2 * widths,
+            color=colors[-2],
         )
         bottom = np.copy(bins[-2])
-        if kind == 'syst':
+        if kind == "syst":
             for k, (lab_i, col_i) in self.dicts.sys_col_labels.items():
-                bin_i = np.sum(np.array(bins[:-2])[np.array(syst_grouper)==k], axis=0)
-                if sum(bin_i)>0:
+                bin_i = np.sum(np.array(bins[:-2])[np.array(syst_grouper) == k], axis=0)
+                if sum(bin_i) > 0:
                     ax[0].bar(
-                            edges_mid,
-                            bin_i,
-                            lw=2,
-                            label=lab_i+": {}".format(int(round(10*sum(bin_i)))/10),
-                            width=2 * widths,
-                            bottom=bottom,
-                            color=col_i,
-                        )
+                        edges_mid,
+                        bin_i,
+                        lw=2,
+                        label=lab_i + ": {}".format(int(round(10 * sum(bin_i))) / 10),
+                        width=2 * widths,
+                        bottom=bottom,
+                        color=col_i,
+                    )
                     bottom += bin_i
-            err_comined = syst_fractions*bottom
+            if syst_fractions:
+                assert len(syst_fractions) == N_bins
+                err_combined2 += (syst_fractions * bottom) ** 2
+            else:
+                cov = self.get_cov(N_bins, x_min, x_max, query, mc_data, mc_weights)
+                err_combined2 += np.diag(cov)  
         else:
             for bin_i, lab_i, col_i in zip(bins[:-2], labels[:-2], colors[:-2]):
                 ax[0].bar(
@@ -322,8 +387,12 @@ class Plotter:
                     color=col_i,
                 )
                 bottom += bin_i
-        val = bottom    
-        for m, v, e, w in zip(edges_mid, val, err_comined, widths):
+            if show_syst:
+                cov = self.get_cov(N_bins, x_min, x_max, query, mc_data, mc_weights)
+                err_combined2 += np.diag(cov) 
+        val = bottom
+        err_combined = np.sqrt(err_combined2)
+        for m, v, e, w in zip(edges_mid, val, err_combined, widths):
             ax[0].add_patch(
                 patches.Rectangle(
                     (m - w, v - e),
@@ -357,11 +426,11 @@ class Plotter:
         ax[0].set_xlim(x_min, x_max)
 
         # Ratio plots
-        y_min_r = max(0, min((bins[-1]-err_on)/val)*0.9)  
-        y_max_r = min(2, max((bins[-1]+err_on)/val)*1.1)  
+        y_min_r = max(0, min((bins[-1] - err_on) / val) * 0.9)
+        y_max_r = min(2, max((bins[-1] + err_on) / val) * 1.1)
         ax[1].set_ylim(y_min_r, y_max_r)
         ax[1].set_xlim(x_min, x_max)
-        if show_data:               
+        if show_data:
             ax[1].errorbar(
                 edges_mid,
                 bins[-1] / val,
@@ -378,8 +447,7 @@ class Plotter:
             ax[0].legend(bbox_to_anchor=(1.02, 0.5), loc="center left")
 
         return ratio, purity, ks_test_p, (bin_dict, edges_mid, edges)
-    
-    
+
     def plot_variable(
         self,
         ax,
@@ -409,7 +477,9 @@ class Plotter:
             ax[0][1].get_xlim()[1] * 0.8,
             ax[0][1].get_ylim()[1] * 0.8,
             r"$\nu_e$"
-            + " CC purity: {0:<3.1f}%\nKS p-value: {1:<5.2f}".format(purity * 100, ks_p),
+            + " CC purity: {0:<3.1f}%\nKS p-value: {1:<5.2f}".format(
+                purity * 100, ks_p
+            ),
             horizontalalignment="right",
             fontsize=12,
         )
@@ -433,6 +503,39 @@ class Plotter:
                 ax[0][0].set_xlabel(x_label)
                 ax[0][0].set_ylabel("Area Normalised")
                 ax[0][0].set_title("Background/Signal shape", loc="left")
+
+    def get_cov(self, N_bins, x_min, x_max, query, cv_data, cv_weights):
+        mask = self.mc_daughters.eval(query).groupby(self.grouper, sort=False).sum()
+        cov = np.zeros([N_bins, N_bins])
+        
+        if max(mask) > 1:
+            print(mask)
+            print(max(mask))
+            print(
+                "Systematic errors are only supported for one daughter per event currently"
+            )
+            return cov
+        else:
+            mask = mask.astype(np.bool)
+
+            n_cv, bins = np.histogram(
+                cv_data, range=(x_min, x_max), bins=N_bins, weights=cv_weights
+            )
+            for type_sys, weights in self.syst_weights.items():
+                n_uni = weights.shape[1]
+                print(
+                    "Systematic vatiation {} has {} universes.".format(type_sys, n_uni)
+                )
+                cov_this = np.zeros([N_bins, N_bins])
+                for i in range(n_uni):
+                    n, bins = np.histogram(
+                        cv_data, weights=weights[mask].T[i], range=(x_min, x_max), bins=N_bins
+                    )
+                    
+                    cov_this += np.outer(n-n_cv, n-n_cv)
+                cov +=  cov_this/n_uni
+            return cov
+
 
 
 def efficiency(
