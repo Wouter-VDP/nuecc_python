@@ -1,8 +1,8 @@
 category_labels = {
-    1: r"$\nu_e$ CC other",
+    1: r"$\nu_e$ CC M$\pi$Np (M>0)",
     10: r"$\nu_e$ CC 0$\pi$0p",
-    11: r"$\nu_e$ CC 0$\pi$Np",
-    111: r"MiniBooNE LEE",
+    11: r"$\nu_e$ CC 0$\pi$Np (N>0)",
+    111: r"MiniBooNE LEE", 
     2: r"$\nu_{\mu}$ CC other",
     21: r"$\nu_{\mu}$ CC $\pi^{0}$",
     3: r"$\nu$ NC",
@@ -61,9 +61,9 @@ pdg_colors = {
 
 
 int_labels = {
-    0: "QE",
-    1: "Resonant",
-    2: "DIS",
+    0: "Quasi-elastic scattering",
+    1: "Resonant production",
+    2: "Deep-inselastic scattering",
     3: "Coherent",
     4: "Coherent Elastic",
     5: "Electron scatt.",
@@ -71,7 +71,7 @@ int_labels = {
     7: r"Inverse $\beta$ decay",
     8: "Glashow resonance",
     9: "AMNuGamma",
-    10: "MEC",
+    10: "Meson exchange current",
     11: "Diffractive",
     12: "EM",
     13: "Weak Mix",
