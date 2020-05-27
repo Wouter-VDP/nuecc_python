@@ -218,7 +218,7 @@ class Plotter:
         query="",
         title_str="",
         legend=True,
-        y_max_scaler=1.1,
+        y_max_scaler=1.025,
         kind="cat",
         show_data=True,
         show_syst=False,
@@ -440,7 +440,7 @@ class Plotter:
         ax[0].set_title(
             "(On-Off)/MC:{0:.2f}$\pm${1:.2f}".format(ratio[0], ratio[2]), loc="left"
         )
-        ax[0].set_ylim(0, y_max_scaler * max(max_val[-1], max(val)))
+        ax[0].set_ylim(0, y_max_scaler * max(max_val[-1]+np.sqrt(max_val[-1]), max(val+err_combined)))
         ax[0].set_xlim(x_min, x_max)
 
         # Ratio plots
