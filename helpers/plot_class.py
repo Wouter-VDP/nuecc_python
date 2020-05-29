@@ -221,10 +221,10 @@ class Plotter:
         y_max_scaler=1.025,
         kind="cat",
         show_data=True,
-        show_syst=False,
+        show_syst=True,
         syst_fractions=None,
         y_label="Events per bin",
-        show_lee=True,
+        show_lee=False,
     ):
 
         """
