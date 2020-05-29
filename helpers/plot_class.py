@@ -14,42 +14,41 @@ import gc
 class Plotter:
     """
     Class to make self.data/MC plots
-    Initialise using a data dictionary as produced by RootLoader.py
+    Initialise using a data dictionary as produced by RootMerger.py
     """
 
-    # Fields shared of any class instance
-    gr = 1.618
-
-    # Fields for initialisation
+    # location: path to pckl dictionary
+    # signal: nue or numu
+    # genie version: mcc9, mcc9.0 or mcc9.1
+    # norm_pot: scale plots to a fixed pot, currently breaka KS test
+    # master_query: applied on daughters for all plots, reduced memory
+    # beam_on: on or sideband
+    # pot_dict: overwrites the pot in the pckled file
+    # load_syst: string set with keys in the ['mc'] dict
+    # show_lee: show lee_model by default on plots, bool
     def __init__(
         self,
-        data,
+        location,
         signal="nue",
         genie_version="mcc9.1",
         norm_pot=0,
         master_query=None,
-        sideband = False,
+        beam_on="on",
+        pot_dict={},
         load_syst=["weightsFlux", "weightsGenie"],
+        show_lee=False,
     ):
 
         self.signal = signal
         self.syst_weights = {}
-        
-        if signal == "nue":
-            self.dicts = plot_dicts_nue
-            self.cats = [1, 10, 11]
-        elif signal == "numu":
-            self.dicts = plot_dicts_numu
-            self.cats = [30, 31, 32]
-        else:
-            print("Error, unknown signal string, choose nue or numu!")
+        self.show_lee = show_lee
+        self.grouper = ["sample", "Run", "event"]
 
-        beam_on = "on"
-        if sideband:
-            beam_on = "sideband"
-
-        if not all([k in data.keys() for k in ["nu", beam_on, "off", "dirt"]]):
-            print("Error, missing samples in the data set!")
+        data = load_data(location, beam_on, master_query, load_syst)
+        self.keys = set(data["nu"]["daughters"].keys())
+        self.title_str = "MicroBooNE {:.1e} POT, Preliminary".format(
+            data[beam_on]["pot"]
+        )
 
         weights_field = "weightSplineTimesTune"
         # Use the Genie v2 model by upweighting.
@@ -76,8 +75,13 @@ class Plotter:
         if genie_version == "mcc9.1":
             print("Using the spline weights as in MCC9.1 Genie V3 tune 1")
 
-        data["dirt"]["daughters"]["category"] = 7
-        data["dirt"]["daughters"]["cat_int"] = 7
+        if len(pot_dict):
+            if "pot" in pot_dict:
+                data[beam_on]["pot"] = pot_dict["pot"]
+            if "E1DCNT_wcut" in pot_dict:
+                data[beam_on]["E1DCNT_wcut"] = pot_dict["E1DCNT_wcut"]
+            if "EXT" in pot_dict:
+                data["off"]["EXT"] = pot_dict["EXT"]
 
         # We want to fill the label plot weight to match the norm_pot, if 0, use Beam_on_norm
         if norm_pot == 0:
@@ -89,32 +93,21 @@ class Plotter:
                 norm_scale * data[beam_on]["pot"], data[beam_on]["pot"]
             )
         )
-        
+
         data[beam_on]["daughters"]["plot_weight"] = norm_scale
         data["off"]["scaling"] = data[beam_on]["E1DCNT_wcut"] / data["off"]["EXT"]
         data["off"]["daughters"]["plot_weight"] = data["off"]["scaling"] * norm_scale
-        
-        if master_query:
-            self.on_daughters = data[beam_on]["daughters"].query(master_query)
-            self.off_daughters = data["off"]["daughters"].query(master_query)
-            self.mc_daughters = pd.concat(
-                [data["nu"]["daughters"], data["dirt"]["daughters"],],
-                copy=False,
-                sort=False,
-            )
-            master_eval = self.mc_daughters.eval(master_query)
-            self.mc_daughters = self.mc_daughters[master_eval]
-     
-        else:
-            self.on_daughters = data[beam_on]["daughters"]
-            self.off_daughters = data["off"]["daughters"]
-            self.mc_daughters = pd.concat(
-                [data["nu"]["daughters"], data["dirt"]["daughters"],],
-                copy=False,
-                sort=False,
-            )
-            
-        print('Loaded all daughter dataframes.')
+
+        self.on_daughters = data[beam_on]["daughters"]
+        self.off_daughters = data["off"]["daughters"]
+        self.mc_daughters = pd.concat(
+            [data["nu"]["daughters"], data["dirt"]["daughters"]],
+            copy=False,
+            sort=False,
+        )
+        del data["nu"]["daughters"]
+        gc.collect()
+        print("Loaded all daughter dataframes.")
 
         # The samples were produced assuming 1e21 as event_scale
         self.mc_daughters["plot_weight"] = (
@@ -123,12 +116,9 @@ class Plotter:
             * (data[beam_on]["pot"] / 1e21)
             * self.mc_daughters[weights_field]
         )
-        del data['nu']['daughters']
-        gc.collect()
 
         if load_syst:
-            print('Started loading systematic weights.')
-            self.grouper = ["sample", "Run", "event"]
+            print("Started loading systematic weights.")
             event_scale = awkward.concatenate(
                 [data["nu"]["mc"]["event_scale"], data["dirt"]["mc"]["event_scale"]]
             )
@@ -139,39 +129,84 @@ class Plotter:
                 event_scale * norm_scale * (data[beam_on]["pot"] / 1e21) * event_weights
             )
             for type_w in load_syst:
-                temp_weights = (
-                    awkward.concatenate(
-                        [data["nu"]["mc"][type_w], data["dirt"]["mc"][type_w]]
-                    )
+                self.syst_weights[type_w] = (
+                    np.hstack([data["nu"]["mc"][type_w], data["dirt"]["mc"][type_w]])
                     * plot_weight
                 )
-                if master_query:
-                    master_eval_grouped = master_eval.groupby(self.grouper, sort=False).max()
-                    matrix_weights = temp_weights[temp_weights.counts > 0].regular()[master_eval_grouped]
-                else:
-                    matrix_weights = temp_weights[temp_weights.counts > 0].regular()
-                self.syst_weights[type_w] = np.clip(
-                    np.nan_to_num(matrix_weights, nan=1, posinf=1, neginf=1), 0, 100
-                )
-                print('Loaded all universes for {}.'.format(type_w))
+                print("Loaded all universes for {}.".format(type_w))
 
         del data
         gc.collect()
+
+        if signal == "nue":
+            self.dicts = plot_dicts_nue
+            self.cats = [1, 10, 11]
+            self.mc_daughters["category"] = helpfunction.nue_categories(
+                self.mc_daughters[helpfunction.cat_cols]
+            )
+            print("Electron categories loaded")
+
+        elif signal == "numu":
+            self.dicts = plot_dicts_numu
+            self.cats = [30, 31, 32]
+        else:
+            print("Error, unknown signal string, choose nue or numu!")
+
         print("Initialisation completed!")
+
+    # Load the pickled dataframe from location
+    def load_data(location, beam_on, master_query, load_syst):
+        data = pd.read_pickle(location)
+        required_keys = {"nu", beam_on, "off", "dirt"}
+        [data.pop(key) for key in set(data.keys()) - required_keys]
+
+        if not all([k in data.keys() for k in required_keys]):
+            print("Error, missing samples in the data set!")
+
+        if master_query:
+            data[beam_on]["daughters"].query(master_query, inplace=True)
+            data["off"]["daughters"].query(master_query, inplace=True)
+            dirt_eval = data["dirt"]["daughters"].eval(master_query)
+            nu_eval = data["nu"]["daughters"].eval(master_query)
+            data["dirt"]["daughters"] = data["dirt"]["daughters"][dirt_eval]
+            data["nu"]["daughters"] = data["nu"]["daughters"][nu_eval]
+
+            if load_syst:
+                dirt_eval_grouped = dirt_eval.groupby(self.grouper, sort=False).max()
+                nu_eval_grouped = nu_eval.groupby(self.grouper, sort=False).max()
+                for type_w in load_syst:
+                    data["nu"]["mc"][type_w] = data["nu"]["mc"][type_w][nu_eval_grouped]
+                    data["dirt"]["mc"][type_w] = data["dirt"]["mc"][type_w][
+                        dirt_eval_grouped
+                    ]
+
+        data["dirt"]["daughters"]["category"] = 7
+        data["dirt"]["daughters"]["cat_int"] = 7
+
+        return data
 
     # Get the purity of a selection
     def get_purity(self, selector, cats):
         weighted_selector = "(" + selector + ")*plot_weight"
-        weights_denom = np.hstack([self.mc_daughters.eval(weighted_selector), self.off_daughters.eval(weighted_selector)])
+        weights_denom = np.hstack(
+            [
+                self.mc_daughters.eval(weighted_selector),
+                self.off_daughters.eval(weighted_selector),
+            ]
+        )
         weights_nom = []
         for cat in cats:
-            weights_nom.append(np.array(self.mc_daughters.query("category==@cat").eval(weighted_selector)))
-        weights_nom = np.hstack(weights_nom)     
+            weights_nom.append(
+                np.array(
+                    self.mc_daughters.query("category==@cat").eval(weighted_selector)
+                )
+            )
+        weights_nom = np.hstack(weights_nom)
         purity, error_purity = helpfunction.effErr(weights_nom, weights_denom)
-                            
+
         return purity, error_purity
 
-    def get_ratio_and_purity(self, query="", return_syst_err = False):
+    def get_ratio_and_purity(self, query="", return_syst_err=False):
         mc_weight_arr = np.array(self.mc_daughters.query(query)["plot_weight"])
         off_weight_arr = np.array(self.off_daughters.query(query)["plot_weight"])
         on_weight_arr = np.array(self.on_daughters.query(query)["plot_weight"])
@@ -182,9 +217,9 @@ class Plotter:
         ratio1_err = np.sqrt(mc_weights + off_weights) / mc_weights
         ratio2 = on_weights / (mc_weights + off_weights)
         ratio = [ratio1, ratio2, ratio1_err]
-        
-        if len(self.syst_weights)>0 & return_syst_err:
-            err_data = np.sum(np.square(np.hstack([on_weight_arr, off_weight_arr])))      
+
+        if len(self.syst_weights) > 0 & return_syst_err:
+            err_data = np.sum(np.square(np.hstack([on_weight_arr, off_weight_arr])))
             cov = 0
             n_uni = 0
             mask = self.mc_daughters.eval(query).groupby(self.grouper, sort=False).sum()
@@ -196,11 +231,13 @@ class Plotter:
                     n_uni += weights.shape[1]
                     for i in range(weights.shape[1]):
                         n_syst_i = np.sum(weights[mask].T[i])
-                        cov += (n_syst_i-mc_weights)**2
-                cov /= n_uni 
-            err_mc = cov + np.sum(np.square(mc_weight_arr)) 
-            err_ratio = ratio1 * np.sqrt( err_data / (on_weights - off_weights)**2 + err_mc / mc_weights**2 )      
-            ratio[2] = err_ratio    
+                        cov += (n_syst_i - mc_weights) ** 2
+                cov /= n_uni
+            err_mc = cov + np.sum(np.square(mc_weight_arr))
+            err_ratio = ratio1 * np.sqrt(
+                err_data / (on_weights - off_weights) ** 2 + err_mc / mc_weights ** 2
+            )
+            ratio[2] = err_ratio
         purity = self.get_purity(query, self.cats)
         return (
             ratio,
@@ -224,7 +261,7 @@ class Plotter:
         show_syst=True,
         syst_fractions=None,
         y_label="Events per bin",
-        show_lee=False,
+        show_lee=self.show_lee,
     ):
 
         """
@@ -249,8 +286,8 @@ class Plotter:
             ks_test_p -- p-value of the KS-test
             dict -- Output of the plot {labels: string, bins: 1d array}
         """
-        ratio, purity = self.get_ratio_and_purity(query,return_syst_err = True)
-        print('Ratio and purity are obtained')
+        ratio, purity = self.get_ratio_and_purity(query, return_syst_err=True)
+        print("Ratio and purity are obtained")
 
         plot_data = []
         weights = []
@@ -392,7 +429,7 @@ class Plotter:
                 err_combined2 += (syst_fractions * bottom) ** 2
             else:
                 cov = self.get_cov(N_bins, x_min, x_max, query, mc_data, mc_weights)
-                err_combined2 += np.diag(cov)  
+                err_combined2 += np.diag(cov)
         else:
             for bin_i, lab_i, col_i in zip(bins[:-2], labels[:-2], colors[:-2]):
                 ax[0].bar(
@@ -407,7 +444,7 @@ class Plotter:
                 bottom += bin_i
             if show_syst:
                 cov = self.get_cov(N_bins, x_min, x_max, query, mc_data, mc_weights)
-                err_combined2 += np.diag(cov) 
+                err_combined2 += np.diag(cov)
         val = bottom
         err_combined = np.sqrt(err_combined2)
         for m, v, e, w in zip(edges_mid, val, err_combined, widths):
@@ -440,7 +477,11 @@ class Plotter:
         ax[0].set_title(
             "(On-Off)/MC:{0:.2f}$\pm${1:.2f}".format(ratio[0], ratio[2]), loc="left"
         )
-        ax[0].set_ylim(0, y_max_scaler * max(max_val[-1]+np.sqrt(max_val[-1]), max(val+err_combined)))
+        ax[0].set_ylim(
+            0,
+            y_max_scaler
+            * max(max_val[-1] + np.sqrt(max_val[-1]), max(val + err_combined)),
+        )
         ax[0].set_xlim(x_min, x_max)
 
         # Ratio plots
@@ -466,66 +507,10 @@ class Plotter:
 
         return ratio, purity, ks_test_p, (bin_dict, edges_mid, edges)
 
-    def plot_variable(
-        self,
-        ax,
-        field,
-        x_label,
-        N_bins,
-        x_min,
-        x_max,
-        query="",
-        title_str="",
-        kind="cat",
-        y_max_scaler=1.1,
-    ):
-        ratio, purity, ks_p, (bin_dict, edges_mid, edges) = self.plot_panel_data_mc(
-            ax.T[1],
-            field,
-            x_label,
-            N_bins,
-            x_min,
-            x_max,
-            query,
-            title_str,
-            kind,
-            y_max_scaler,
-        )
-        ax[0][1].text(
-            ax[0][1].get_xlim()[1] * 0.8,
-            ax[0][1].get_ylim()[1] * 0.8,
-            r"$\nu_e$"
-            + " CC purity: {0:<3.1f}%\nKS p-value: {1:<5.2f}".format(
-                purity[0] * 100, ks_p
-            ),
-            horizontalalignment="right",
-            fontsize=12,
-        )
-        ax[1][0].remove()
-
-        exclude = list(bin_dict.keys())[-4:]
-        for k, (v, c, e) in bin_dict.items():
-            if k not in exclude:
-                sum_cat = float(k.split(":")[-1])
-                v_norm = v / sum_cat
-                e_norm = e / sum_cat
-                print(k)
-                ax[0][0].fill_between(
-                    edges_mid,
-                    v_norm - e_norm,
-                    v_norm + e_norm,
-                    alpha=0.3,
-                    step="mid",
-                    color=c,
-                )
-                ax[0][0].set_xlabel(x_label)
-                ax[0][0].set_ylabel("Area Normalised")
-                ax[0][0].set_title("Background/Signal shape", loc="left")
-
     def get_cov(self, N_bins, x_min, x_max, query, cv_data, cv_weights):
         mask = self.mc_daughters.eval(query).groupby(self.grouper, sort=False).sum()
         cov = np.zeros([N_bins, N_bins])
-        
+
         if max(mask) > 1:
             print(mask)
             print(max(mask))
@@ -547,13 +532,15 @@ class Plotter:
                 cov_this = np.zeros([N_bins, N_bins])
                 for i in range(n_uni):
                     n, bins = np.histogram(
-                        cv_data, weights=weights[mask].T[i], range=(x_min, x_max), bins=N_bins
+                        cv_data,
+                        weights=weights[mask].T[i],
+                        range=(x_min, x_max),
+                        bins=N_bins,
                     )
-                    
-                    cov_this += np.outer(n-n_cv, n-n_cv)
-                cov +=  cov_this/n_uni
-            return cov
 
+                    cov_this += np.outer(n - n_cv, n - n_cv)
+                cov += cov_this / n_uni
+            return cov
 
 
 def efficiency(

@@ -6,8 +6,26 @@ import scipy.stats
 mass_p = 0.93827
 min_p_energy = mass_p + 0.04
 min_e_energy = 0.020
-data_samples = ['on', 'off', 'sideband']
+data_samples = {"on", "off", "sideband"}
+syst_weights = ["weightsFlux", "weightsGenie"]
 gr = 1.618
+
+### POT factors
+pot_dict = {
+    "sideband": {},
+    "sideband12": {"pot": 3.988e20, "E1DCNT_wcut": 92086705},
+    "sideband3": {"pot": 1.842e20, "E1DCNT_wcut": 44050047},
+    "ext12": 186993192,
+    "ext3": 86991453,
+}
+pot_dict["sideband"]["pot"] = (
+    pot_dict["sideband12"]["pot"] + pot_dict["sideband3"]["pot"]
+)
+pot_dict["sideband"]["E1DCNT_wcut"] = (
+    pot_dict["sideband12"]["E1DCNT_wcut"] + pot_dict["sideband3"]["E1DCNT_wcut"]
+)
+pot_dict["ext"] = pot_dict["ext12"] + pot_dict["ext3"]
+
 
 phi_ticks = [-np.pi, -np.pi / 2, 0, np.pi / 2, np.pi]
 phi_labs = [r"$-\pi$", r"$-\pi/2$", r"$0$", r"$\pi/2$", r"$\pi$"]
@@ -17,33 +35,42 @@ theta_labs = [r"$0$", r"$\pi/4$", r"$\pi$/2", r"$3\pi$/4", r"$\pi$"]
 ### Fiducial volume
 lower = np.array([-1.55, -115.53, 0.1])
 upper = np.array([254.8, 117.47, 1036.9])
-fid_vol = np.array([[10,10,20], [10,10,50]])
-contain_vol = np.array([[5,6,10], [5,6,10]])
-fid_box = np.array([lower+fid_vol[0], upper-fid_vol[1]]).T
-contain_box = np.array([lower+contain_vol[0], upper-contain_vol[1]]).T
+fid_vol = np.array([[10, 10, 20], [10, 10, 50]])
+contain_vol = np.array([[5, 6, 10], [5, 6, 10]])
+fid_box = np.array([lower + fid_vol[0], upper - fid_vol[1]]).T
+contain_box = np.array([lower + contain_vol[0], upper - contain_vol[1]]).T
 tpc_box = np.array([lower, upper]).T
 
-def is_in_box(x,y,z,box):
+
+def is_in_box(x, y, z, box):
     bool_x = (box[0][0] < x) & (x < box[0][1])
     bool_y = (box[1][0] < y) & (y < box[1][1])
     bool_z = (box[2][0] < z) & (z < box[2][1])
     return bool_x & bool_y & bool_z
-def is_fid(x,y,z):
-    return is_in_box(x,y,z,fid_box)
-def is_contain(x,y,z):
-    return is_in_box(x,y,z,contain_box)
-def is_tpc(x,y,z):
-    return is_in_box(x,y,z,tpc_box)
-       
+
+
+def is_fid(x, y, z):
+    return is_in_box(x, y, z, fid_box)
+
+
+def is_contain(x, y, z):
+    return is_in_box(x, y, z, contain_box)
+
+
+def is_tpc(x, y, z):
+    return is_in_box(x, y, z, tpc_box)
+
+
 ### Get the pitch
 def get_pitch(dir_y, dir_z, plane):
     if plane == 0:
-        cos = dir_y * (-np.sqrt(3)/2) + dir_z * (1/2)
+        cos = dir_y * (-np.sqrt(3) / 2) + dir_z * (1 / 2)
     if plane == 1:
-        cos = dir_y * (np.sqrt(3)/2) + dir_z * (1/2)
+        cos = dir_y * (np.sqrt(3) / 2) + dir_z * (1 / 2)
     if plane == 2:
         cos = dir_z
     return 0.3 / cos
+
 
 def effErr(num_w, den_w, symm=True):
     conf_level = 0.682689492137
@@ -72,3 +99,28 @@ def effErr(num_w, den_w, symm=True):
         else:
             unc_up = delta
         return eff, unc_low, unc_up
+
+
+def nue_categories(df):
+    q_1 = "true_fid_vol & abs(nu_pdg)==12 & nelec>0 & (npi0+npion)>0"
+    q_10 = "true_fid_vol & abs(nu_pdg)==12 & nelec>0 & nproton==0 & (npi0+npion)==0"
+    q_11 = "true_fid_vol & abs(nu_pdg)==12 & nelec>0 & nproton>0 & (npi0+npion)==0"
+    q_2 = "true_fid_vol & abs(nu_pdg)==14 & nmuon>0 & npi0==0"
+    q_21 = "true_fid_vol & abs(nu_pdg)==14 & nmuon>0 & npi0>0"
+    q_3 = "true_fid_vol & ~((abs(nu_pdg)==12 & nelec>0) | (abs(nu_pdg)==14 & nmuon>0)) & npi0==0"
+    q_31 = "true_fid_vol & ~((abs(nu_pdg)==12 & nelec>0) | (abs(nu_pdg)==14 & nmuon>0)) & npi0>0"
+    q_5 = "true_fid_vol==0"
+
+    new_cat = (
+        df["daughters"].eval(q_1) * 1
+        + df["daughters"].eval(q_10) * 10
+        + df["daughters"].eval(q_11) * 11
+        + df["daughters"].eval(q_2) * 2
+        + df["daughters"].eval(q_21) * 21
+        + df["daughters"].eval(q_3) * 3
+        + df["daughters"].eval(q_31) * 31
+        + df["daughters"].eval(q_5) * 5
+    )
+    cosmic = (df["nu_purity_from_pfp"] < 0.5) & (new_cat != 5)
+    new_cat[cosmic] = 4
+    return new_cat
