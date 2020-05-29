@@ -7,8 +7,9 @@ from helpers import plot_dicts_numu
 from helpers import helpfunction
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
-import awkward
 import gc
+
+text_dict = {0: ("left", 0.02), 1: ("center", 0.5), 2: ("right", 0.98)}
 
 
 class Plotter:
@@ -17,6 +18,8 @@ class Plotter:
     Initialise using a data dictionary as produced by RootMerger.py
     """
 
+    gr = 1.618
+    grouper = ["sample", "Run", "event"]
     # location: path to pckl dictionary
     # signal: nue or numu
     # genie version: mcc9, mcc9.0 or mcc9.1
@@ -35,20 +38,19 @@ class Plotter:
         master_query=None,
         beam_on="on",
         pot_dict={},
-        load_syst=["weightsFlux", "weightsGenie"],
+        load_syst=None,
         show_lee=False,
     ):
 
         self.signal = signal
         self.syst_weights = {}
         self.show_lee = show_lee
-        self.grouper = ["sample", "Run", "event"]
 
-        data = load_data(location, beam_on, master_query, load_syst)
+        data = self.load_data(location, beam_on, master_query, load_syst)
         self.keys = set(data["nu"]["daughters"].keys())
-        self.title_str = "MicroBooNE {:.1e} POT, Preliminary".format(
+        self.title_str = r"MicroBooNE {:.1e}$\,$POT, Preliminary".format(
             data[beam_on]["pot"]
-        )
+        ).replace("+", "")
 
         weights_field = "weightSplineTimesTune"
         # Use the Genie v2 model by upweighting.
@@ -119,20 +121,22 @@ class Plotter:
 
         if load_syst:
             print("Started loading systematic weights.")
-            event_scale = awkward.concatenate(
-                [data["nu"]["mc"]["event_scale"], data["dirt"]["mc"]["event_scale"]]
-            )
-            event_weights = awkward.concatenate(
-                [data["nu"]["mc"][weights_field], data["dirt"]["mc"][weights_field]]
-            )
             plot_weight = (
-                event_scale * norm_scale * (data[beam_on]["pot"] / 1e21) * event_weights
+                self.mc_daughters["plot_weight"]
+                .groupby(self.grouper, sort=False)
+                .first()
+                .astype(np.float32)
             )
+            print()
             for type_w in load_syst:
                 self.syst_weights[type_w] = (
-                    np.hstack([data["nu"]["mc"][type_w], data["dirt"]["mc"][type_w]])
-                    * plot_weight
-                )
+                    np.multiply(
+                        np.vstack(
+                            [data["nu"]["mc"][type_w], data["dirt"]["mc"][type_w]]
+                        ),
+                        plot_weight[:, np.newaxis],
+                    )
+                ).astype(np.float32)
                 print("Loaded all universes for {}.".format(type_w))
 
         del data
@@ -155,7 +159,7 @@ class Plotter:
         print("Initialisation completed!")
 
     # Load the pickled dataframe from location
-    def load_data(location, beam_on, master_query, load_syst):
+    def load_data(self, location, beam_on, master_query, load_syst):
         data = pd.read_pickle(location)
         required_keys = {"nu", beam_on, "off", "dirt"}
         [data.pop(key) for key in set(data.keys()) - required_keys]
@@ -175,10 +179,12 @@ class Plotter:
                 dirt_eval_grouped = dirt_eval.groupby(self.grouper, sort=False).max()
                 nu_eval_grouped = nu_eval.groupby(self.grouper, sort=False).max()
                 for type_w in load_syst:
-                    data["nu"]["mc"][type_w] = data["nu"]["mc"][type_w][nu_eval_grouped]
+                    data["nu"]["mc"][type_w] = data["nu"]["mc"][type_w][
+                        nu_eval_grouped
+                    ].astype(np.float32)
                     data["dirt"]["mc"][type_w] = data["dirt"]["mc"][type_w][
                         dirt_eval_grouped
-                    ]
+                    ].astype(np.float32)
 
         data["dirt"]["daughters"]["category"] = 7
         data["dirt"]["daughters"]["cat_int"] = 7
@@ -261,7 +267,7 @@ class Plotter:
         show_syst=True,
         syst_fractions=None,
         y_label="Events per bin",
-        show_lee=self.show_lee,
+        show_lee=None,
     ):
 
         """
@@ -286,8 +292,12 @@ class Plotter:
             ks_test_p -- p-value of the KS-test
             dict -- Output of the plot {labels: string, bins: 1d array}
         """
+        if show_lee is None:
+            show_lee = self.show_lee
+        if title_str is not "":
+            title_str = "\n" + title_str
+
         ratio, purity = self.get_ratio_and_purity(query, return_syst_err=True)
-        print("Ratio and purity are obtained")
 
         plot_data = []
         weights = []
@@ -473,10 +483,7 @@ class Plotter:
             )
 
         ax[0].set_ylabel(y_label)
-        ax[0].set_title(title_str, loc="right")
-        ax[0].set_title(
-            "(On-Off)/MC:{0:.2f}$\pm${1:.2f}".format(ratio[0], ratio[2]), loc="left"
-        )
+        ax[0].set_title(self.title_str + title_str, loc="left")
         ax[0].set_ylim(
             0,
             y_max_scaler
@@ -505,7 +512,14 @@ class Plotter:
         if legend:
             ax[0].legend(bbox_to_anchor=(1.02, 0.5), loc="center left")
 
-        return ratio, purity, ks_test_p, (bin_dict, edges_mid, edges)
+        # if we want to write on the figure, left, middle or right?
+        bin_count = int(N_bins / 2)
+        left = val[0:bin_count].sum()
+        middle = val[int(N_bins / 4) : int(N_bins / 4) + bin_count].sum()
+        right = val[-(bin_count + 1) : -1].sum()
+        best_text_loc = np.argmin([left, middle, right])
+
+        return ratio, purity, ks_test_p, (bin_dict, edges_mid, edges), best_text_loc
 
     def get_cov(self, N_bins, x_min, x_max, query, cv_data, cv_weights):
         mask = self.mc_daughters.eval(query).groupby(self.grouper, sort=False).sum()
@@ -526,9 +540,6 @@ class Plotter:
             )
             for type_sys, weights in self.syst_weights.items():
                 n_uni = weights.shape[1]
-                print(
-                    "Systematic vatiation {} has {} universes.".format(type_sys, n_uni)
-                )
                 cov_this = np.zeros([N_bins, N_bins])
                 for i in range(n_uni):
                     n, bins = np.histogram(
@@ -738,3 +749,25 @@ def histHelper(n_bins, x_min, x_max, data, weights=0, where="mid", log=False):
         bins = [np.append(b, b[-1]) for b in bins]
 
     return edges, edges_mid, bins, max_val
+
+
+def add_text(ax, which, locator):
+    y_pos = 0.95 - 0.05 * sum(x is not None for x in which)
+    text_str = ""
+    if which[0] is not None:
+        ratio = which[0] 
+        text_str += r"(On-Off)/MC: {:.2f}$\pm${:.2f}".format(ratio[0], ratio[2])
+    if which[1] is not None:
+        purity = which[1]
+        text_str += "\n" + r"$\nu_e$" + " CC purity: {:<3.1%}".format(purity[0])
+    if which[2] is not None:
+        ks_p = which[2]
+        text_str += "\nKS p-value: {:<5.2f}".format(ks_p)
+
+    ax.text(
+        (ax.get_xlim()[1]-ax.get_xlim()[0]) * text_dict[locator][1] + ax.get_xlim()[0],
+        (ax.get_ylim()[1]-ax.get_ylim()[0]) * y_pos + ax.get_ylim()[0],
+        text_str,
+        horizontalalignment=text_dict[locator][0],
+        fontsize="medium",
+    )

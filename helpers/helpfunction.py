@@ -8,7 +8,6 @@ min_p_energy = mass_p + 0.04
 min_e_energy = 0.020
 data_samples = {"on", "off", "sideband"}
 syst_weights = ["weightsFlux", "weightsGenie"]
-gr = 1.618
 
 ### POT factors
 pot_dict = {
@@ -101,6 +100,18 @@ def effErr(num_w, den_w, symm=True):
         return eff, unc_low, unc_up
 
 
+cat_cols = [
+    "true_fid_vol",
+    "nu_pdg",
+    "nelec",
+    "npi0",
+    "nmuon",
+    'nproton',
+    "npion",
+    "nu_purity_from_pfp",
+]
+
+
 def nue_categories(df):
     q_1 = "true_fid_vol & abs(nu_pdg)==12 & nelec>0 & (npi0+npion)>0"
     q_10 = "true_fid_vol & abs(nu_pdg)==12 & nelec>0 & nproton==0 & (npi0+npion)==0"
@@ -112,14 +123,14 @@ def nue_categories(df):
     q_5 = "true_fid_vol==0"
 
     new_cat = (
-        df["daughters"].eval(q_1) * 1
-        + df["daughters"].eval(q_10) * 10
-        + df["daughters"].eval(q_11) * 11
-        + df["daughters"].eval(q_2) * 2
-        + df["daughters"].eval(q_21) * 21
-        + df["daughters"].eval(q_3) * 3
-        + df["daughters"].eval(q_31) * 31
-        + df["daughters"].eval(q_5) * 5
+        df.eval(q_1) * 1
+        + df.eval(q_10) * 10
+        + df.eval(q_11) * 11
+        + df.eval(q_2) * 2
+        + df.eval(q_21) * 21
+        + df.eval(q_3) * 3
+        + df.eval(q_31) * 31
+        + df.eval(q_5) * 5
     )
     cosmic = (df["nu_purity_from_pfp"] < 0.5) & (new_cat != 5)
     new_cat[cosmic] = 4
