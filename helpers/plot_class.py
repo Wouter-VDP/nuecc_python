@@ -17,9 +17,9 @@ class Plotter:
     Class to make self.data/MC plots
     Initialise using a data dictionary as produced by RootMerger.py
     """
-
     gr = 1.618
     grouper = ["sample", "Run", "event"]
+    
     # location: path to pckl dictionary
     # signal: nue or numu
     # genie version: mcc9, mcc9.0 or mcc9.1
@@ -45,6 +45,7 @@ class Plotter:
         self.signal = signal
         self.syst_weights = {}
         self.show_lee = show_lee
+        self.ratio_purity_ks_dict = {}
 
         data = self.load_data(location, beam_on, master_query, load_syst)
         self.keys = set(data["nu"]["daughters"].keys())
@@ -297,8 +298,6 @@ class Plotter:
         if title_str is not "":
             title_str = "\n" + title_str
 
-        ratio, purity = self.get_ratio_and_purity(query, return_syst_err=True)
-
         plot_data = []
         weights = []
         labels = []
@@ -375,12 +374,19 @@ class Plotter:
         labels.append("BNB On" + ": {0:0.0f}".format(sum(weights[-1])))
         colors.append("k")
 
-        # KS-test
-        flattened_MC = np.concatenate(plot_data[:-1]).ravel()
-        flattened_weights = np.concatenate(weights[:-1]).ravel()
-        ks_test_d, ks_test_p = kstest_weighted(
-            flattened_MC, plot_data[-1], flattened_weights, weights[-1]
-        )
+        if query in self.ratio_purity_ks_dict:
+            print('Obtained ratio puriiy and KS test from dict')
+            ratio, purity, ks_test_p = *self.ratio_purity_ks_dict[query]
+        else:
+            print('Calculating ratio puriiy and KS test')
+            ratio, purity = self.get_ratio_and_purity(query, return_syst_err=True)
+            # KS-test
+            flattened_MC = np.concatenate(plot_data[:-1]).ravel()
+            flattened_weights = np.concatenate(weights[:-1]).ravel()
+            ks_test_d, ks_test_p = kstest_weighted(
+                flattened_MC, plot_data[-1], flattened_weights, weights[-1]
+            )
+            self.ratio_purity_ks_dict[query] = (ratio, purity, ks_test_p)
 
         # Start binning   hist_bin_uncertainty(data, weights, x_min, x_max, bin_edges)
         edges, edges_mid, bins, max_val = histHelper(
@@ -506,18 +512,12 @@ class Plotter:
                 color="k",
                 fmt=".",
             )
-        ax[1].set_ylabel(r"$\frac{Beam\ ON}{Beam\ OFF + MC}$")
+        ax[1].set_ylabel(r"BNB$\,$On$\,$/$\,$(BNB$\,$Off + MC)$")
         ax[1].set_xlabel(x_label)
 
         if legend:
             ax[0].legend(bbox_to_anchor=(1.02, 0.5), loc="center left")
-
-        # if we want to write on the figure, left, middle or right?
-        bin_count = int(N_bins / 2)
-        left = val[0:bin_count].sum()
-        middle = val[int(N_bins / 4) : int(N_bins / 4) + bin_count].sum()
-        right = val[-(bin_count + 1) : -1].sum()
-        best_text_loc = np.argmin([left, middle, right])
+        best_text_loc = get_best_text_loc(val, N_bins)
 
         return ratio, purity, ks_test_p, (bin_dict, edges_mid, edges), best_text_loc
 
@@ -751,8 +751,8 @@ def histHelper(n_bins, x_min, x_max, data, weights=0, where="mid", log=False):
     return edges, edges_mid, bins, max_val
 
 
-def add_text(ax, which, locator):
-    y_pos = 0.95 - 0.05 * sum(x is not None for x in which)
+def add_text(ax, which, locator, y = 1):
+    y_pos = (0.95 - 0.06 * sum(x is not None for x in which))*y
     text_str = ""
     if which[0] is not None:
         ratio = which[0] 
@@ -771,3 +771,11 @@ def add_text(ax, which, locator):
         horizontalalignment=text_dict[locator][0],
         fontsize="medium",
     )
+    
+def get_best_text_loc{val, N_bins):
+    # if we want to write on the figure, left, middle or right?
+    bin_count = int(N_bins / 2)
+    left = val[0:bin_count].sum()
+    middle = val[int(N_bins / 4) : int(N_bins / 4) + bin_count].sum()
+    right = val[-(bin_count + 1) : -1].sum()
+    return np.argmin([left, middle, right])

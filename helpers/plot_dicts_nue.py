@@ -1,7 +1,7 @@
 category_labels = {
-    1: r"$\nu_e$ CC M$\pi$Np (M>0)",
+    1: r"$\nu_e$ CC N$\pi$", # $Np (M>0)",
     10: r"$\nu_e$ CC 0$\pi$0p",
-    11: r"$\nu_e$ CC 0$\pi$Np (N>0)",
+    11: r"$\nu_e$ CC 0$\pi$Np", #(N>0)",
     111: r"MiniBooNE LEE", 
     2: r"$\nu_{\mu}$ CC other",
     21: r"$\nu_{\mu}$ CC $\pi^{0}$",
