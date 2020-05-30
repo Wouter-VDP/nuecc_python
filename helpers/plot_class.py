@@ -45,7 +45,7 @@ class Plotter:
         self.signal = signal
         self.syst_weights = {}
         self.show_lee = show_lee
-        self.ratio_purity_ks_dict = {}
+        self.ratio_purity_dict = {}
 
         data = self.load_data(location, beam_on, master_query, load_syst)
         self.keys = set(data["nu"]["daughters"].keys())
@@ -374,19 +374,19 @@ class Plotter:
         labels.append("BNB On" + ": {0:0.0f}".format(sum(weights[-1])))
         colors.append("k")
 
-        if query in self.ratio_purity_ks_dict:
-            print('Obtained ratio puriiy and KS test from dict')
-            ratio, purity, ks_test_p = *self.ratio_purity_ks_dict[query]
+        if query in self.ratio_purity_dict:
+            print('Obtained ratio and purity from dict')
+            (ratio, purity) = self.ratio_purity_dict[query]
         else:
-            print('Calculating ratio puriiy and KS test')
+            print('Calculating ratio and purity')
             ratio, purity = self.get_ratio_and_purity(query, return_syst_err=True)
-            # KS-test
-            flattened_MC = np.concatenate(plot_data[:-1]).ravel()
-            flattened_weights = np.concatenate(weights[:-1]).ravel()
-            ks_test_d, ks_test_p = kstest_weighted(
-                flattened_MC, plot_data[-1], flattened_weights, weights[-1]
-            )
-            self.ratio_purity_ks_dict[query] = (ratio, purity, ks_test_p)
+            self.ratio_purity_dict[query] = (ratio, purity)
+        # KS-test
+        flattened_MC = np.concatenate(plot_data[:-1]).ravel()
+        flattened_weights = np.concatenate(weights[:-1]).ravel()
+        ks_test_d, ks_test_p = kstest_weighted(
+            flattened_MC, plot_data[-1], flattened_weights, weights[-1]
+        )
 
         # Start binning   hist_bin_uncertainty(data, weights, x_min, x_max, bin_edges)
         edges, edges_mid, bins, max_val = histHelper(
@@ -512,7 +512,7 @@ class Plotter:
                 color="k",
                 fmt=".",
             )
-        ax[1].set_ylabel(r"BNB$\,$On$\,$/$\,$(BNB$\,$Off + MC)$")
+        ax[1].set_ylabel(r"$\frac{BNB On}{BNB Off + MC}$")
         ax[1].set_xlabel(x_label)
 
         if legend:
@@ -526,10 +526,8 @@ class Plotter:
         cov = np.zeros([N_bins, N_bins])
 
         if max(mask) > 1:
-            print(mask)
-            print(max(mask))
             print(
-                "Systematic errors are only supported for one daughter per event currently"
+                "Covariance matrices supported for one daughter per event, max found: {}".format(max(mask))
             )
             return cov
         else:
@@ -772,7 +770,7 @@ def add_text(ax, which, locator, y = 1):
         fontsize="medium",
     )
     
-def get_best_text_loc{val, N_bins):
+def get_best_text_loc(val, N_bins):
     # if we want to write on the figure, left, middle or right?
     bin_count = int(N_bins / 2)
     left = val[0:bin_count].sum()
