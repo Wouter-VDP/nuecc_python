@@ -49,9 +49,6 @@ class Plotter:
 
         data = self.load_data(location, beam_on, master_query, load_syst)
         self.keys = set(data["nu"]["daughters"].keys())
-        self.title_str = r"MicroBooNE {:.1e}$\,$POT, Preliminary".format(
-            data[beam_on]["pot"]
-        ).replace("+", "")
 
         weights_field = "weightSplineTimesTune"
         # Use the Genie v2 model by upweighting.
@@ -85,6 +82,9 @@ class Plotter:
                 data[beam_on]["E1DCNT_wcut"] = pot_dict["E1DCNT_wcut"]
             if "EXT" in pot_dict:
                 data["off"]["EXT"] = pot_dict["EXT"]
+        self.title_str = r"MicroBooNE {:.1e}$\,$POT, Preliminary".format(
+            data[beam_on]["pot"]
+        ).replace("+", "")
 
         # We want to fill the label plot weight to match the norm_pot, if 0, use Beam_on_norm
         if norm_pot == 0:
@@ -512,7 +512,7 @@ class Plotter:
                 color="k",
                 fmt=".",
             )
-        ax[1].set_ylabel(r"$\frac{BNB On}{BNB Off + MC}$")
+        ax[1].set_ylabel(r"$\frac{BNB\ On}{BNB\ Off\,+\,MC}$")
         ax[1].set_xlabel(x_label)
 
         if legend:
