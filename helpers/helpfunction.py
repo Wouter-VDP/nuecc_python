@@ -3,6 +3,7 @@ import pandas as pd
 import scipy.stats
 
 ### Constants
+gr = 1.618
 mass_p = 0.93827
 min_p_energy = mass_p + 0.04
 min_e_energy = 0.020
