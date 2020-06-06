@@ -17,9 +17,10 @@ class Plotter:
     Class to make self.data/MC plots
     Initialise using a data dictionary as produced by RootMerger.py
     """
+
     gr = 1.618
     grouper = ["sample", "Run", "event"]
-    
+
     # location: path to pckl dictionary
     # signal: nue or numu
     # genie version: mcc9, mcc9.0 or mcc9.1
@@ -40,6 +41,7 @@ class Plotter:
         pot_dict={},
         load_syst=None,
         show_lee=False,
+        pi0_scaling=False,
     ):
 
         self.signal = signal
@@ -74,6 +76,11 @@ class Plotter:
             print("Using the spline weights as in MCC9.0 Genie V3")
         if genie_version == "mcc9.1":
             print("Using the spline weights as in MCC9.1 Genie V3 tune 1")
+            if pi0_scaling:
+                weights_field = "weightSplineTimesTune_pi0scaled"
+                print(
+                    "Empirical scaling of 1-0.4*E applied on events with neutral pions."
+                )
 
         if len(pot_dict):
             if "pot" in pot_dict:
@@ -374,11 +381,12 @@ class Plotter:
         labels.append("BNB On" + ": {0:0.0f}".format(sum(weights[-1])))
         colors.append("k")
 
+        # Statistical tests
         if query in self.ratio_purity_dict:
-            print('Obtained ratio and purity from dict')
+            print("Obtained ratio and purity from dict")
             (ratio, purity) = self.ratio_purity_dict[query]
         else:
-            print('Calculating ratio and purity')
+            print("Calculating ratio and purity")
             ratio, purity = self.get_ratio_and_purity(query, return_syst_err=True)
             self.ratio_purity_dict[query] = (ratio, purity)
         # KS-test
@@ -387,29 +395,30 @@ class Plotter:
         ks_test_d, ks_test_p = kstest_weighted(
             flattened_MC, plot_data[-1], flattened_weights, weights[-1]
         )
+        cnp = None
 
-        # Start binning   hist_bin_uncertainty(data, weights, x_min, x_max, bin_edges)
+        # Start binning
         edges, edges_mid, bins, max_val = histHelper(
             N_bins, x_min, x_max, plot_data, weights=weights
         )
+        beam_on_bins = bins[-1]
 
         for data_i, weight_i in zip(plot_data[:-2], weights[:-2]):
             bin_err.append(hist_bin_uncertainty(data_i, weight_i, x_min, x_max, edges))
         err_on = hist_bin_uncertainty(plot_data[-1], weights[-1], x_min, x_max, edges)
         err_off = hist_bin_uncertainty(plot_data[-2], weights[-2], x_min, x_max, edges)
-        err_off[err_off == 0] = 0.4 * np.mean(weights[-2])
+        err_off[err_off == 0] = 0.4 * np.mean(
+            weights[-2]
+        )  # add-hoc increase the error on the off if no events
         err_mc = hist_bin_uncertainty(mc_data, mc_weights, x_min, x_max, edges)
         err_combined2 = err_off ** 2 + err_mc ** 2
         widths = edges_mid - edges[:-1]
-
-        bin_err.extend([err_off, err_on])
-        bin_dict = dict(zip(labels, zip(bins, colors, bin_err)))
 
         if show_data:
             # On
             ax[0].errorbar(
                 edges_mid,
-                bins[-1],
+                beam_on_bins,
                 xerr=widths,
                 yerr=err_on,
                 color=colors[-1],
@@ -425,7 +434,7 @@ class Plotter:
             width=2 * widths,
             color=colors[-2],
         )
-        bottom = np.copy(bins[-2])
+        prediction = np.copy(bins[-2])
         if kind == "syst":
             for k, (lab_i, col_i) in self.dicts.sys_col_labels.items():
                 bin_i = np.sum(np.array(bins[:-2])[np.array(syst_grouper) == k], axis=0)
@@ -436,16 +445,13 @@ class Plotter:
                         lw=2,
                         label=lab_i + ": {}".format(int(round(10 * sum(bin_i))) / 10),
                         width=2 * widths,
-                        bottom=bottom,
+                        bottom=prediction,
                         color=col_i,
                     )
-                    bottom += bin_i
+                    prediction += bin_i
             if syst_fractions:
                 assert len(syst_fractions) == N_bins
-                err_combined2 += (syst_fractions * bottom) ** 2
-            else:
-                cov = self.get_cov(N_bins, x_min, x_max, query, mc_data, mc_weights)
-                err_combined2 += np.diag(cov)
+                err_combined2 += (syst_fractions * prediction) ** 2
         else:
             for bin_i, lab_i, col_i in zip(bins[:-2], labels[:-2], colors[:-2]):
                 ax[0].bar(
@@ -454,16 +460,28 @@ class Plotter:
                     lw=2,
                     label=lab_i,
                     width=2 * widths,
-                    bottom=bottom,
+                    bottom=prediction,
                     color=col_i,
                 )
-                bottom += bin_i
-            if show_syst:
-                cov = self.get_cov(N_bins, x_min, x_max, query, mc_data, mc_weights)
-                err_combined2 += np.diag(cov)
-        val = bottom
+                prediction += bin_i
+
+        if show_syst:
+            cov = self.get_cov(edges, query, mc_data, mc_weights)
+            err_combined2 += np.diag(cov)  # used for the error on prediction
+            # cov matrix used for the chi2_CNP
+            err_stat_cnp = np.where(
+                (beam_on_bins > 0) & (prediction > 0),
+                3 / (1 / beam_on_bins + 2 / prediction),
+                prediction / 2 + beam_on_bins,
+            )
+            cov[np.diag_indices_from(cov)] += err_combined2 + err_stat_cnp
+            diff = beam_on_bins - prediction
+            chisq = diff.dot(np.linalg.inv(cov)).dot(diff.T)
+            chisq_p = 1 - scipy.stats.chi2.cdf(chisq, N_bins)
+            cnp = (chisq, chisq_p, N_bins)
+
         err_combined = np.sqrt(err_combined2)
-        for m, v, e, w in zip(edges_mid, val, err_combined, widths):
+        for m, v, e, w in zip(edges_mid, prediction, err_combined, widths):
             ax[0].add_patch(
                 patches.Rectangle(
                     (m - w, v - e),
@@ -493,21 +511,21 @@ class Plotter:
         ax[0].set_ylim(
             0,
             y_max_scaler
-            * max(max_val[-1] + np.sqrt(max_val[-1]), max(val + err_combined)),
+            * max(max_val[-1] + np.sqrt(max_val[-1]), max(prediction + err_combined)),
         )
         ax[0].set_xlim(x_min, x_max)
 
         # Ratio plots
-        y_min_r = max(0, min((bins[-1] - err_on) / val) * 0.9)
-        y_max_r = min(2, max((bins[-1] + err_on) / val) * 1.1)
+        y_min_r = max(0, min((beam_on_bins - err_on) / prediction) * 0.9)
+        y_max_r = min(2, max((beam_on_bins + err_on) / prediction) * 1.1)
         ax[1].set_ylim(y_min_r, y_max_r)
         ax[1].set_xlim(x_min, x_max)
         if show_data:
             ax[1].errorbar(
                 edges_mid,
-                bins[-1] / val,
+                beam_on_bins / prediction,
                 xerr=widths,
-                yerr=err_on / val,
+                yerr=err_on / prediction,
                 alpha=1.0,
                 color="k",
                 fmt=".",
@@ -517,39 +535,36 @@ class Plotter:
 
         if legend:
             ax[0].legend(bbox_to_anchor=(1.02, 0.5), loc="center left")
-        best_text_loc = get_best_text_loc(val, N_bins)
+        best_text_loc = get_best_text_loc(prediction, N_bins)
 
-        return ratio, purity, ks_test_p, (bin_dict, edges_mid, edges), best_text_loc
+        return ratio, purity, ks_test_p, cnp, best_text_loc
 
-    def get_cov(self, N_bins, x_min, x_max, query, cv_data, cv_weights):
+    def get_cov(self, bin_edges, query, cv_data, cv_weights):
         mask = self.mc_daughters.eval(query).groupby(self.grouper, sort=False).sum()
+        N_bins = len(bin_edges) - 1
         cov = np.zeros([N_bins, N_bins])
+        n_cv, _ = np.histogram(cv_data, bins=bin_edges, weights=cv_weights)
 
         if max(mask) > 1:
             print(
-                "Covariance matrices supported for one daughter per event, max found: {}".format(max(mask))
+                "Covariance matrices supported for one daughter per event, max found: {}".format(
+                    max(mask)
+                )
             )
-            return cov
         else:
             mask = mask.astype(np.bool)
 
-            n_cv, bins = np.histogram(
-                cv_data, range=(x_min, x_max), bins=N_bins, weights=cv_weights
-            )
             for type_sys, weights in self.syst_weights.items():
                 n_uni = weights.shape[1]
                 cov_this = np.zeros([N_bins, N_bins])
                 for i in range(n_uni):
-                    n, bins = np.histogram(
-                        cv_data,
-                        weights=weights[mask].T[i],
-                        range=(x_min, x_max),
-                        bins=N_bins,
+                    n, _ = np.histogram(
+                        cv_data, weights=weights[mask].T[i], bins=bin_edges,
                     )
 
                     cov_this += np.outer(n - n_cv, n - n_cv)
                 cov += cov_this / n_uni
-            return cov
+        return cov
 
 
 def efficiency(
@@ -749,31 +764,38 @@ def histHelper(n_bins, x_min, x_max, data, weights=0, where="mid", log=False):
     return edges, edges_mid, bins, max_val
 
 
-def add_text(ax, which, locator, y = 1):
-    y_pos = (0.95 - 0.06 * sum(x is not None for x in which))*y
-    text_str = ""
+def add_text(ax, which, locator, y=1):
+    y_pos = (1 - 0.08 * sum(x is not None for x in which)) * y
+    text_str = []
     if which[0] is not None:
-        ratio = which[0] 
-        text_str += r"(On-Off)/MC: {:.2f}$\pm${:.2f}".format(ratio[0], ratio[2])
+        ratio = which[0]
+        text_str.append(r"(On-Off)/MC: {:.2f}$\pm${:.2f}".format(ratio[0], ratio[2]))
+    if which[3] is not None:
+        (cnp_chi, cnp_p, dof) = which[3]
+        text_str.append(
+            "$\chi^2$/dof: {:.1f}/{}, p: {:.2f}".format(cnp_chi, dof, cnp_p)
+        )
     if which[1] is not None:
         purity = which[1]
-        text_str += "\n" + r"$\nu_e$" + " CC purity: {:<3.1%}".format(purity[0])
+        text_str.append(r"$\nu_e$" + " CC purity: {:<3.1%}".format(purity[0]))
     if which[2] is not None:
         ks_p = which[2]
-        text_str += "\nKS p-value: {:<5.2f}".format(ks_p)
+        text_str.append("KS p-value: {:<5.2f}".format(ks_p))
 
     ax.text(
-        (ax.get_xlim()[1]-ax.get_xlim()[0]) * text_dict[locator][1] + ax.get_xlim()[0],
-        (ax.get_ylim()[1]-ax.get_ylim()[0]) * y_pos + ax.get_ylim()[0],
-        text_str,
+        (ax.get_xlim()[1] - ax.get_xlim()[0]) * text_dict[locator][1]
+        + ax.get_xlim()[0],
+        (ax.get_ylim()[1] - ax.get_ylim()[0]) * y_pos + ax.get_ylim()[0],
+        "\n".join(text_str),
         horizontalalignment=text_dict[locator][0],
         fontsize="medium",
     )
-    
-def get_best_text_loc(val, N_bins):
+
+
+def get_best_text_loc(prediction, N_bins):
     # if we want to write on the figure, left, middle or right?
     bin_count = int(N_bins / 2)
-    left = val[0:bin_count].sum()
-    middle = val[int(N_bins / 4) : int(N_bins / 4) + bin_count].sum()
-    right = val[-(bin_count + 1) : -1].sum()
+    left = prediction[0:bin_count].sum()
+    middle = prediction[int(N_bins / 4) : int(N_bins / 4) + bin_count].sum()
+    right = prediction[-(bin_count + 1) : -1].sum()
     return np.argmin([left, middle, right])

@@ -107,7 +107,7 @@ cat_cols = [
     "nelec",
     "npi0",
     "nmuon",
-    'nproton',
+    "nproton",
     "npion",
     "nu_purity_from_pfp",
 ]
