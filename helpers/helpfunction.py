@@ -13,8 +13,10 @@ syst_weights = ["weightsFlux", "weightsGenie"]
 ### POT factors
 pot_dict = {
     "sideband": {},
-    "sideband12": {"pot": 3.988e20, "E1DCNT_wcut": 92086705},
-    "sideband3": {"pot": 1.842e20, "E1DCNT_wcut": 44050047},
+    #"sideband12": {"pot": 3.988e20, "E1DCNT_wcut": 92086705},
+    #"sideband3": {"pot": 1.842e20, "E1DCNT_wcut": 44050047},
+    "sideband12": {"pot": 4.279e+20, "E1DCNT_wcut": 99029235},
+    "sideband3": {"pot": 2.561e+20, "E1DCNT_wcut": 61214217},
     "ext12": 186993192,
     "ext3": 86991453,
 }

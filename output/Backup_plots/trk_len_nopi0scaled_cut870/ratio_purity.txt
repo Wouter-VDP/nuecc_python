@@ -1,0 +1,28 @@
+5e19:
+NeutrinoID 	Purity: 0.13%+-0.00%
+NeutrinoID 	Ratio: 1.02+-0.14
+Pre-selection 	Purity: 5.74%+-0.04%
+Pre-selection 	Ratio: 0.91+-0.13
+Selection 	Purity: 53.25%+-1.00%
+Selection 	Ratio: 0.72+-0.21
+
+
+6e20:
+Pre-selection 	Purity: 18.59%+-0.27%
+Pre-selection 	Ratio: 0.82+-0.11
+Selection 	Purity: 80.64%+-2.00%
+Selection 	Ratio: 0.74+-0.15
+
+
+6e20_12:
+Pre-selection 	Purity: 18.53%+-0.29%
+Pre-selection 	Ratio: 0.81+-0.11
+Selection 	Purity: 81.26%+-2.21%
+Selection 	Ratio: 0.89+-0.18
+
+
+6e20_3:
+Pre-selection 	Purity: 18.73%+-0.36%
+Pre-selection 	Ratio: 0.86+-0.13
+Selection 	Purity: 79.30%+-3.26%
+Selection 	Ratio: 0.42+-0.16
