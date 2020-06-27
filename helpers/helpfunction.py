@@ -10,6 +10,25 @@ min_e_energy = 0.020
 data_samples = {"on", "off", "sideband"}
 syst_weights = ["weightsFlux", "weightsGenie"]
 
+### Electron and preselection queries
+e_cand_str = "pfp_clusters_v==3 & \
+              trk_score_v<0.3 & \
+              shr_tkfit_2cm_nhits_Y >0 & \
+              pfp_generation_v==2 & \
+              trk_llr_pid_score_v>0.4 & \
+              trk_len_v < 350"
+
+query_preselect = "optical_filter & \
+                   e_candidate & \
+                   slpdg==12 &\
+                   reco_fid_vol & \
+                   shr_energy_y_v>100 & \
+                   CosmicIPAll3D>30 & \
+                   CosmicDirAll3D>-0.98 & \
+                   CosmicDirAll3D<0.98 & \
+                   topological_score > 0.15 & \
+                   contained_fraction>0.4"
+
 ### POT factors
 pot_dict = {
     "sideband": {},
@@ -28,7 +47,7 @@ pot_dict["sideband"]["E1DCNT_wcut"] = (
 )
 pot_dict["ext"] = pot_dict["ext12"] + pot_dict["ext3"]
 
-
+### Labels for angle plots
 phi_ticks = [-np.pi, -np.pi / 2, 0, np.pi / 2, np.pi]
 phi_labs = [r"$-\pi$", r"$-\pi/2$", r"$0$", r"$\pi/2$", r"$\pi$"]
 theta_ticks = [0, np.pi / 4, np.pi / 2, 3 * np.pi / 4, np.pi]
