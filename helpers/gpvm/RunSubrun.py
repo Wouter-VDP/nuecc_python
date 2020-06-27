@@ -9,7 +9,7 @@ dir_path = "/uboone/data/users/wvdp/searchingfornues/March2020/combined/"
 root_dir = 'nuselection'
 tree_name = "SubRun"
 
-folders = ['beam_on', 'beam_off']
+folders = ['beam_sideband']#['beam_on', 'beam_off']
 run_subrun_all = []
 for folder in folders:
     fns = glob.glob(dir_path+folder+'/*.root')

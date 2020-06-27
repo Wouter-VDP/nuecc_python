@@ -14,7 +14,7 @@ from enum_sample import Sample_dict
 root_dir = "nuselection"
 main_tree = "NeutrinoSelectionFilter"
 dir_path = "/uboone/data/users/wvdp/searchingfornues/March2020/combined/"
-exclude_samples = ['beam_sideband', 'beam_on', 'beam_off'] #["beam_off", "train", "dirt", "nu", "nue", "filter", "beam_on"]
+exclude_samples = ['beam_on', 'beam_off' , "train", "dirt", "nu", "filter", 'nue']
 
 ### Fiducial volume
 lower = np.array([-1.55, -115.53, 0.1])
@@ -54,6 +54,7 @@ def load_truth_event(tree, run_number, sample_enum):
     )
     has_electron = mc_arrays["nelec"] > 0
     signal_mask = has_fiducial_vtx & has_electron
+    mc_arrays['true_fid_vol'] = has_fiducial_vtx
     mc_arrays["nueccinc"] = signal_mask
     mc_arrays["Run"] = np.repeat(run_number, len(signal_mask))
     mc_arrays["sample"] = np.repeat(sample_enum, len(signal_mask)) 
@@ -109,6 +110,13 @@ def load_truth_event(tree, run_number, sample_enum):
     # optical filter:
     mc_arrays["optical_filter"] = (tree.array("_opfilter_pe_beam") > 0) & (tree.array("_opfilter_pe_veto") < 20)
     
+    # add the systematic weights for events with a slice:
+    for col_mc in ['weightsFlux', 'weightsGenie']:
+        #mc_arrays[col_mc] = (tree.array(col_mc)*(tree.array('nslice')==1)).astype(np.float32).regular()
+        jagged_mc = tree.array(col_mc).astype(np.float16)
+        mask_mc = (jagged_mc.ones_like()*tree.array('nslice')).astype(np.bool)
+        mc_arrays[col_mc] = jagged_mc[mask_mc]
+        
     print("\t\t", np.unique(filter_cat, return_counts=True))
 
     for key in col_load.filter_cols:
@@ -224,6 +232,7 @@ def load_this_sample(dir_path, folder, root_files, data_scaling):
         sample_info["mc"] = {}
         for col_mc in truth[0].keys():
             sample_info["mc"][col_mc] = awkward.concatenate([t[col_mc] for t in truth])
+        
         print("\tSize of concatenated output:", len(sample_info["mc"][col_mc]))
     end = time.time()
     print("\tCompleted, time passed: {:0.1f}s.".format(end - start))

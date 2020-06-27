@@ -5,7 +5,7 @@ from subprocess import check_output
 dir_path = "/uboone/data/users/wvdp/searchingfornues/March2020/combined/"
 pot_dict = {}
 
-folders = ['beam_on/run_subrun_run123_filtered_beam_on_uniq.txt']#, 'beam_off/run_subrun_beam_off.txt']
+folders = ['beam_sideband/run_subrun_far_sideband_extended.txt']#, 'beam_off/run_subrun_beam_off.txt']
 
 print "Beam On Sample:"
 on = check_output("/uboone/app/users/zarko/getDataInfo.py -v2 --run-subrun-list {}{}".format(dir_path, folders[0]), shell=True)

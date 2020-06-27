@@ -163,9 +163,6 @@ table_cols = {
     'nmuon',
     "nu_completeness_from_pfp",
     "nu_purity_from_pfp",
-    'weightsFlux',
-    'weightsGenie',
-    'weightsReint'
 }
 
 filter_cols = {

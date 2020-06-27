@@ -54,10 +54,6 @@ truth = [nu['mc'], nue['mc'], filtered['mc']]
 truth_mask = [nu_mc_scale!=0, nue_mc_scale!=0, filtered_mc_scale!=0]
 for col_mc in truth[0].keys():
     nu_new["mc"][col_mc] = awkward.concatenate([t[col_mc][b] for t,b in zip(truth, truth_mask)])
-# to lower the data size, remove the weights of events without a slice:    
-mask_no_slice = nu_new["mc"]['n_pfps']==0
-for col_mc in ['weightsFlux', 'weightsGenie', 'weightsReint']:
-    nu_new["mc"][col_mc][mask_no_slice] = None    
 nu_new['mc']['event_scale'] = np.hstack([nu_mc_scale[nu_mc_scale!=0],nue_mc_scale[nue_mc_scale!=0],filtered_mc_scale[filtered_mc_scale!=0]])
 nu_new["numentries"] = len(nu_new['mc']['event_scale'])
 daughters = [nu['daughters'][nu_daughter_mask], nue['daughters'][nue_daughter_mask], filtered['daughters'][filtered_daughter_mask]]
@@ -82,7 +78,7 @@ truth = [nu['mc'], filtered['mc'], train['mc']]
 truth_mask = [nu_mc_scale==0, filtered_mc_scale==0, np.full(len(train['mc']['Run']),True)]
 for col_mc in truth[0].keys():
     # our training sample does not need systematic errors!
-    if col_mc not in ['weightsFlux', 'weightsGenie', 'weightsReint']
+    if col_mc not in ['weightsFlux', 'weightsGenie', 'weightsReint']:
         training_new["mc"][col_mc] = awkward.concatenate([t[col_mc][b] for t,b in zip(truth, truth_mask)])
 
 training_new["numentries"] = len(training_new['mc']['Run'])
