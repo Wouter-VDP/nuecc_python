@@ -153,11 +153,6 @@ class Plotter:
         if signal == "nue":
             self.dicts = plot_dicts_nue
             self.cats = [1, 10, 11]
-            self.mc_daughters["category"] = helpfunction.nue_categories(
-                self.mc_daughters[helpfunction.cat_cols]
-            )
-            print("Electron categories loaded")
-
         elif signal == "numu":
             self.dicts = plot_dicts_numu
             self.cats = [30, 31, 32]

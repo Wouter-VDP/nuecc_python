@@ -127,44 +127,7 @@ def effErr(num_w, den_w, symm=True):
         return eff, unc_low, unc_up
 
 
-cat_cols = [
-    "true_fid_vol",
-    "nu_pdg",
-    "nelec",
-    "npi0",
-    "nmuon",
-    "nproton",
-    "npion",
-    "nu_purity_from_pfp",
-]
-
-
-def nue_categories(df):
-    q_1 = "true_fid_vol & abs(nu_pdg)==12 & nelec>0 & (npi0+npion)>0"
-    q_10 = "true_fid_vol & abs(nu_pdg)==12 & nelec>0 & nproton==0 & (npi0+npion)==0"
-    q_11 = "true_fid_vol & abs(nu_pdg)==12 & nelec>0 & nproton>0 & (npi0+npion)==0"
-    q_2 = "true_fid_vol & abs(nu_pdg)==14 & nmuon>0 & npi0==0"
-    q_21 = "true_fid_vol & abs(nu_pdg)==14 & nmuon>0 & npi0>0"
-    q_3 = "true_fid_vol & ~((abs(nu_pdg)==12 & nelec>0) | (abs(nu_pdg)==14 & nmuon>0)) & npi0==0"
-    q_31 = "true_fid_vol & ~((abs(nu_pdg)==12 & nelec>0) | (abs(nu_pdg)==14 & nmuon>0)) & npi0>0"
-    q_5 = "true_fid_vol==0"
-
-    new_cat = (
-        df.eval(q_1) * 1
-        + df.eval(q_10) * 10
-        + df.eval(q_11) * 11
-        + df.eval(q_2) * 2
-        + df.eval(q_21) * 21
-        + df.eval(q_3) * 3
-        + df.eval(q_31) * 31
-        + df.eval(q_5) * 5
-    )
-    cosmic = (df["nu_purity_from_pfp"] < 0.5) & (new_cat != 5)
-    new_cat[cosmic] = 4
-    return new_cat
-
-
-# Function to evaluate the training
+# Function to plot the training evaluation
 def analyse_training(
     model_file, X_text, X_train, y_test, y_train, train_ana, labels
 ):
