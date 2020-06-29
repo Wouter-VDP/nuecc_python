@@ -129,7 +129,7 @@ def effErr(num_w, den_w, symm=True):
 
 # Function to plot the training evaluation
 def analyse_training(
-    model_file, X_text, X_train, y_test, y_train, train_ana, labels
+    model_file, X_test, X_train, y_test, y_train, train_ana, labels, depth
 ):
     fig, ax = plt.subplots(ncols=4, figsize=(8 * 1.618, 3.5), constrained_layout=True)
 
@@ -173,7 +173,7 @@ def analyse_training(
     ax[1].legend(loc="lower right")
 
     # retrieve performance metrics
-    results = model_e.evals_result()
+    results = model_file.evals_result()
     epochs = len(results["validation_0"]["error"])
     x_axis = range(0, epochs)
     # plot log loss
