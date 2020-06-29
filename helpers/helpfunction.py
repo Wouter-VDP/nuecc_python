@@ -2,6 +2,11 @@ import numpy as np
 import pandas as pd
 import scipy.stats
 
+import matplotlib.pyplot as plt
+from xgboost import XGBClassifier
+from sklearn.metrics import roc_curve, auc
+from sklearn.model_selection import validation_curve
+
 ### Constants
 gr = 1.618
 mass_p = 0.93827
@@ -32,10 +37,10 @@ query_preselect = "optical_filter & \
 ### POT factors
 pot_dict = {
     "sideband": {},
-    #"sideband12": {"pot": 3.988e20, "E1DCNT_wcut": 92086705},
-    #"sideband3": {"pot": 1.842e20, "E1DCNT_wcut": 44050047},
-    "sideband12": {"pot": 4.279e+20, "E1DCNT_wcut": 99029235},
-    "sideband3": {"pot": 2.561e+20, "E1DCNT_wcut": 61214217},
+    # "sideband12": {"pot": 3.988e20, "E1DCNT_wcut": 92086705},
+    # "sideband3": {"pot": 1.842e20, "E1DCNT_wcut": 44050047},
+    "sideband12": {"pot": 4.279e20, "E1DCNT_wcut": 99029235},
+    "sideband3": {"pot": 2.561e20, "E1DCNT_wcut": 61214217},
     "ext12": 186993192,
     "ext3": 86991453,
 }
@@ -157,3 +162,104 @@ def nue_categories(df):
     cosmic = (df["nu_purity_from_pfp"] < 0.5) & (new_cat != 5)
     new_cat[cosmic] = 4
     return new_cat
+
+
+# Function to evaluate the training
+def analyse_training(
+    model_file, X_text, X_train, y_test, y_train, train_ana, labels
+):
+    fig, ax = plt.subplots(ncols=4, figsize=(8 * 1.618, 3.5), constrained_layout=True)
+
+    y_pred = model_file.predict_proba(X_test).T[0]
+    y_pred_train = model_file.predict_proba(X_train).T[0]
+    fpr, tpr, _ = roc_curve(y_test[labels["train_label"]], y_pred)
+    fpr_train, tpr_train, _ = roc_curve(y_train[labels["train_label"]], y_pred_train)
+    roc_auc = auc(tpr, fpr)
+    roc_auc_train = auc(tpr_train, fpr_train)
+
+    ax[0].hist(
+        y_pred[y_test[labels["train_label"]] == 0],
+        alpha=0.5,
+        bins=50,
+        range=(0, 1),
+        label=labels['signal'],
+        density=False,
+    )
+    ax[0].hist(
+        y_pred[y_test[labels["train_label"]] == 1],
+        alpha=0.5,
+        bins=50,
+        range=(0, 1),
+        label=labels['background'],
+        density=False,
+    )
+    ax[0].legend(loc="upper left")
+    ax[0].set_xlim(0, 1)
+    ax[0].set_xlabel(labels['xlabel'])
+    ax[0].set_ylabel("Entries per bin")
+    ax[0].set_title(labels['title'])
+
+    ax[1].plot(tpr, fpr, label="Test data (area = %0.3f)" % roc_auc)
+    ax[1].plot(tpr_train, fpr_train, label="Train data (area = %0.3f)" % roc_auc_train)
+    ax[1].plot([0, 1], [0, 1], linestyle="--")
+    ax[1].set_xlim([0.0, 1.0])
+    ax[1].set_ylim([0.0, 1.0])
+    ax[1].set_xlabel("False Positive Rate")
+    ax[1].set_ylabel("True Positive Rate")
+    ax[1].set_title("ROC curve")
+    ax[1].legend(loc="lower right")
+
+    # retrieve performance metrics
+    results = model_e.evals_result()
+    epochs = len(results["validation_0"]["error"])
+    x_axis = range(0, epochs)
+    # plot log loss
+    ax[2].plot(x_axis, results["validation_1"]["logloss"], label="Test data")
+    ax[2].plot(x_axis, results["validation_0"]["logloss"], label="Train data")
+    ax[2].legend()
+    ax[2].set_ylabel("Binary logistic loss")
+    ax[2].set_xlabel("Training epoch")
+    ax[2].set_title("XGBoost logistic loss")
+
+    if train_ana:
+        print('Started training for different depths')
+        param_range = range(1, 8)
+        train_scores, test_scores = validation_curve(
+            XGBClassifier(),
+            X_train,
+            y_train[labels["train_label"]],
+            param_name="max_depth",
+            param_range=param_range,
+            scoring="accuracy",
+            n_jobs=3,
+            cv=2,
+        )
+        print('Finished training for different depths')
+    
+        train_scores_mean = np.mean(train_scores, axis=1)
+        train_scores_std = np.std(train_scores, axis=1)
+        test_scores_mean = np.mean(test_scores, axis=1)
+        test_scores_std = np.std(test_scores, axis=1)
+
+        ax[3].set_title("Validation Curve")
+        ax[3].set_xlabel(r"Tree depth")
+        ax[3].set_ylabel("Accuracy")
+        ax[3].plot(param_range, test_scores_mean, label="Testing accuracy")
+        ax[3].fill_between(
+            param_range,
+            test_scores_mean - test_scores_std,
+            test_scores_mean + test_scores_std,
+            alpha=0.2,
+        )
+        ax[3].plot(param_range, train_scores_mean, label="Training accuracy")
+        ax[3].fill_between(
+            param_range,
+            train_scores_mean - train_scores_std,
+            train_scores_mean + train_scores_std,
+            alpha=0.2,
+        )
+        ax[3].axvline(x=depth, label="Training depth", color="C2", alpha=0.5)
+        ax[3].legend()
+        ax[3].set_xticks(param_range)
+
+    fig.savefig(labels['file_name'])
