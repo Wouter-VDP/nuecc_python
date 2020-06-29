@@ -32,12 +32,11 @@ def SelectNues(sample, data):
     if sample in helper.data_samples:
         data["daughters"]["optical_filter"] = True
     else:
+        if sample == "dirt":
+            FixDirtWeights(data["mc"], sum(data["pot"].values()))
         ConvertWeights(sample, data["mc"])
         AddSimulatedFields(sample, data)
         AddNueCategories(data["daughters"])
-
-        if sample == "dirt":
-            FixDirtWeights(data["mc"], sum(data["pot"].values()))
 
     if sample == "sideband":
         FixSidebandRuns(data["daughters"])
