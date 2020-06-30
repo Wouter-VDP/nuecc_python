@@ -12,7 +12,7 @@ gr = 1.618
 mass_p = 0.93827
 min_p_energy = mass_p + 0.04
 min_e_energy = 0.020
-data_samples = {"on", "off", "sideband"}
+data_samples = {"on", "off", "sideband",'fake'}
 syst_weights = ["weightsFlux", "weightsGenie"]
 
 ### Electron and preselection queries
@@ -43,6 +43,7 @@ pot_dict = {
     "sideband3": {"pot": 2.561e20, "E1DCNT_wcut": 61214217},
     "ext12": 186993192,
     "ext3": 86991453,
+    "fake": {"pot": 5.01e20, "E1DCNT_wcut": 0}
 }
 pot_dict["sideband"]["pot"] = (
     pot_dict["sideband12"]["pot"] + pot_dict["sideband3"]["pot"]

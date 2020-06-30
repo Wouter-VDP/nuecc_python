@@ -38,8 +38,7 @@ def SelectNues(sample, data):
         AddSimulatedFields(sample, data)
         AddNueCategories(data["daughters"])
 
-    if sample == "sideband":
-        FixSidebandRuns(data["daughters"])
+    FixSidebandRuns(data["daughters"])
 
     AddRecoFields(data["daughters"])
     AddOtherDaughterAngleDiff(data["daughters"])
@@ -70,16 +69,15 @@ def ConvertWeights(sample, mc_data):
 
 # Fix the Run period for the sideband sample
 def FixSidebandRuns(daughters):
-    run2_a = 8316
-    run2_b = 10000
+    run2 = 8316
     run3 = 13696
-    daughters.eval(
-        "Run = 1 + (run>@run2_a) + 0.5*(run>@run2_b) + 0.5*(run>@run3)", inplace=True
-    )
+    daughters.eval("Run = 1 + (run>@run2) + (run>@run3)", inplace=True)
+
 
 # Weight the dirt sample in the same way as the other mc samples
 def FixDirtWeights(mc_data, mc_pot):
     mc_data["event_scale"] = np.full(len(mc_data["Run"]), pot_target / mc_pot)
+
 
 # Add additional fields needed for the selection
 def AddRecoFields(daughters):
@@ -171,6 +169,7 @@ def AddRecoFields(daughters):
         .transform(max)
     )
 
+
 # Add the angle between daughters and the electron candidate
 def AddOtherDaughterAngleDiff(daughters):
     e_pre_temp = daughters.query("e_candidate & preselect")
@@ -196,6 +195,7 @@ def AddOtherDaughterAngleDiff(daughters):
     daughters["e_candidate_anglediff"] = 0
     daughters.loc[pre_temp.index, "e_candidate_anglediff"] = cos_sim
 
+
 # Clip unreasonable values
 def PrepareTraining(daughters):
     for col in (
@@ -207,6 +207,7 @@ def PrepareTraining(daughters):
                 -100,
                 1000,
             )
+
 
 # Apply the BDT classification of the daughters
 def PerformObjectClassification(daughters):
@@ -248,6 +249,7 @@ def PerformObjectClassification(daughters):
         .values
     )
 
+
 # Apply the BDT classification of the event
 def PerformEventClassification(daughters, cut_val):
     model_event = load(model_dir + "model_event.pckl")
@@ -260,6 +262,7 @@ def PerformEventClassification(daughters, cut_val):
     # Final selection
     query_select = "e_candidate & preselect & score_event>@cut_val"
     daughters["select"] = daughters.eval(query_select)
+
 
 # Add truth based fields to the daughter dataframe
 def AddSimulatedFields(k, v):
@@ -310,6 +313,7 @@ def AddSimulatedFields(k, v):
         v["mc"]["n_pfps"],
     )
 
+
 # Add categories used for nue plotting
 def AddNueCategories(daughters):
     q_1 = "true_fid_vol & abs(nu_pdg)==12 & nelec>0 & (npi0+npion)>0"
@@ -334,10 +338,14 @@ def AddNueCategories(daughters):
     cosmic = (daughters["nu_purity_from_pfp"] < 0.5) & (daughters["category"] != 5)
     daughters["category"][cosmic] = 4
 
+
 # Generate the pckl file used by the plotter
 def CreateAfterTraining(plot_samples, input_dir, one_file=True):
-    available_samples = os.listdir(input_dir)
+    available_samples = [
+        f for f in os.listdir(input_dir) if os.path.isfile(os.path.join(input_dir, f))
+    ]
     all_samples = {}
+    print(available_samples)
 
     for sample in plot_samples:
         start_time = time.time()
