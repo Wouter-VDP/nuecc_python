@@ -1,9 +1,24 @@
+# category_labels = {
+#     30: r"$\nu_\mu$ CC 0p",
+#     31: r"$\nu_\mu$ CC 0$\pi$Np",
+#     32: r"$\nu_\mu$ CC M$\pi$Np",
+#     33: r"$\nu_\mu$ NC",
+#     34: r"$\nu_{\mu}$ CC other",
+#     10: r"$\nu_e$",
+#     4: r"Cosmic",
+#     5: r"Out of FV",
+#     6: r"other",
+#     7: r"Out of Cryo",  # DIRT sample
+#     0: r"No slice"
+# }
+
 category_labels = {
-    30: r"$\nu_\mu$ CC 0p",
-    31: r"$\nu_\mu$ CC 0$\pi$Np",
-    32: r"$\nu_\mu$ CC M$\pi$Np",
-    33: r"$\nu_\mu$ NC",
+    30: r"$\nu_\mu$ CC 0$\pi$1p",
+    31: r"$\nu_\mu$ CC 0$\pi$2p",
+    32: r"$\nu_\mu$ CC 1$\pi$0p",
+    33: r"$\nu_\mu$ CC 1$\pi$1p",
     34: r"$\nu_{\mu}$ CC other",
+    35: r"NC",
     10: r"$\nu_e$",
     4: r"Cosmic",
     5: r"Out of FV",
@@ -12,16 +27,20 @@ category_labels = {
     0: r"No slice"
 }
 
+
 category_colors = {
     4: "xkcd:salmon",
     5: "xkcd:brick",
     2: "xkcd:cyan",
     21: "xkcd:cerulean",
-    3: "xkcd:cobalt",
-    33: "xkcd:sky blue",
-    31: "xkcd:green",
+
     30: "xkcd:mint green",
+    31: "xkcd:green",
     32: "xkcd:lime green",
+    33: "xkcd:sea green",
+    34: "xkcd:cobalt",
+    35: "xkcd:sky blue",
+    
     10: "xkcd:goldenrod",
     6: "xkcd:black",
     7: "xkcd:tomato",
