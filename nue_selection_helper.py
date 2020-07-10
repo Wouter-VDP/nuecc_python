@@ -22,8 +22,9 @@ grouper = ["sample", "Run", "event"]
 # POT used in the loader on the gpvm.
 pot_target = 1e21
 # Final selection BDT cut
-cut_val = 0.87  # 0.805
-
+cut_val = 0.87  # 0.
+# For DetVar samples, remove all genie and flux weights
+rm_syst_w = True
 
 # ### Definitions ###
 
@@ -39,7 +40,12 @@ def SelectNues(sample, data):
         AddNueCategories(data["daughters"])
 
     FixSidebandRuns(data["daughters"])
-
+    
+    # grouper needs to work:
+    if 'sample' not in data["daughters"].columns:
+        global grouper
+        grouper = ["event"]
+        
     AddRecoFields(data["daughters"])
     AddOtherDaughterAngleDiff(data["daughters"])
     PrepareTraining(data["daughters"])
@@ -55,16 +61,19 @@ def SelectNues(sample, data):
 # Convert the systematic weights from jagged arrays to numpy float16 matrices.
 def ConvertWeights(sample, mc_data):
     for w in helper.syst_weights:
-        mc_data[w] = np.clip(
-            np.nan_to_num(
-                mc_data[w][mc_data[w].counts > 0].regular().astype("float16"),
-                nan=1,
-                posinf=1,
-                neginf=1,
-            ),
-            0,
-            100,
-        )
+        if rm_syst_w:
+            mc_data[w] = None
+        #else:  # This is not done on the grid in the merger module
+        #    mc_data[w] = np.clip(
+        #        np.nan_to_num(
+        #            mc_data[w][mc_data[w].counts > 0].regular().astype("float16"),
+        #            nan=1,
+        #            posinf=1,
+        #            neginf=1,
+        #        ),
+        #        0,
+        #        100,
+        #    )
 
 
 # Fix the Run period for the sideband sample
@@ -340,7 +349,7 @@ def AddNueCategories(daughters):
 
 
 # Generate the pckl file used by the plotter
-def CreateAfterTraining(plot_samples, input_dir, one_file=True):
+def CreateAfterTraining(plot_samples, input_dir, one_file=False):
     available_samples = [
         f for f in os.listdir(input_dir) if os.path.isfile(os.path.join(input_dir, f))
     ]
@@ -370,6 +379,6 @@ def CreateAfterTraining(plot_samples, input_dir, one_file=True):
         )
         print(sel_str + "\n")
     if one_file:
-        pickle_out = open("{}lite/after_training.pckl".format(input_dir), "wb")
+        pickle_out = open(one_file, "wb")
         pickle.dump(all_samples, pickle_out)
         pickle_out.close()

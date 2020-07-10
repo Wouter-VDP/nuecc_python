@@ -1,28 +1,19 @@
 # Columns for daughter frames:
-col_pfp = {#"pfnplanehits_U", 
-           #"pfnplanehits_V", 
-           #"pfnplanehits_Y", 
-           "pfpplanesubclusters_U",
+col_pfp = {"pfpplanesubclusters_U",
            "pfpplanesubclusters_V",
            "pfpplanesubclusters_Y",
-           #"pfpplanesubhitfracmax_U",
-           #"pfpplanesubhitfracmax_V",
-           #"pfpplanesubhitfracmax_Y",
            "pfnhits",
            "pfp_generation_v",
            "pfp_trk_daughters_v",
            "pfp_shr_daughters_v",
           }
+          
 col_trk = {
     "trk_score_v",
     "trk_distance_v",
     "trk_theta_v",
     "trk_phi_v",
     "trk_len_v",
-    #"trk_llr_pid_u_v",
-    #"trk_llr_pid_v_v",
-    #"trk_llr_pid_y_v",
-    #"trk_llr_pid_v",
     "trk_llr_pid_score_v",
     "trk_mcs_muon_mom_v",
     "trk_range_muon_mom_v",
@@ -34,37 +25,21 @@ col_trk = {
     "trk_sce_start_x_v",
     "trk_sce_start_y_v",
     "trk_sce_start_z_v",
-    #"trk_start_x_v",
-    #"trk_start_y_v",
-    #"trk_start_z_v"
 }
 col_shr = {
     "shr_dist_v",
     "shr_energy_y_v",
-    #"shr_energy_u_v",
-    #"shr_energy_v_v",
-    #"shr_tkfit_start_x_v",
-    #"shr_tkfit_start_y_v",
-    #"shr_tkfit_start_z_v",
-    #"shr_start_x_v",
-    #"shr_start_y_v",
-    #"shr_start_z_v",
-    #"shr_tkfit_theta_v",
-    #"shr_tkfit_phi_v",
     "shr_phi_v",
     "shr_theta_v",
     "shr_tkfit_dedx_u_v",
     "shr_tkfit_dedx_v_v",
     "shr_tkfit_dedx_y_v",
-    #"shr_tkfit_gap10_dedx_u_v",
-    #"shr_tkfit_gap10_dedx_v_v",
     "shr_tkfit_gap10_dedx_y_v",
     "shr_tkfit_nhits_v",
     "shr_tkfit_dedx_nhits_u_v",
     "shr_tkfit_dedx_nhits_v_v",
     "shr_tkfit_dedx_nhits_y_v",
     'shr_moliere_avg_v',
-    #'shr_moliere_rms_v'
 }
 
 col_backtracked = {
@@ -102,15 +77,10 @@ col_event = {
     #"category",
     #"contained_sps_ratio",
     "slpdg",
-    "SliceCaloEnergy2",
-    'NeutrinoEnergy2',
     #"secondshower_U_nhit",
     #"secondshower_V_nhit",
     "secondshower_Y_nhit",
     "secondshower_Y_vtxdist",
-    "secondshower_Y_dot",
-    "secondshower_Y_dir",
-    "secondshower_Y_eigenratio",
     # Roberto fields
     "hits_ratio",
     "contained_fraction",
@@ -127,11 +97,7 @@ col_event = {
     "trkshrhitdist2",
     "reco_e",
     "shr_tkfit_2cm_dedx_Y",
-    "shr_tkfit_2cm_dedx_V",
-    "shr_tkfit_2cm_dedx_U",
     "shr_tkfit_2cm_nhits_Y",
-    "shr_tkfit_2cm_nhits_V",
-    "shr_tkfit_2cm_nhits_U"
 }
 
 cols_run3 = {"_closestNuCosmicDist"}
@@ -163,6 +129,19 @@ table_cols = {
     'nmuon',
     "nu_completeness_from_pfp",
     "nu_purity_from_pfp",
+    # Knobs:
+    "knobRPAup",
+    "knobRPAdn",
+    "knobCCMECup",
+    "knobCCMECdn",
+    "knobAxFFCCQEup",
+    "knobAxFFCCQEdn",
+    "knobVecFFCCQEup",
+    "knobVecFFCCQEdn",
+    "knobDecayAngMECup",
+    "knobDecayAngMECdn",
+    "knobThetaDelta2Npiup",
+    "knobThetaDelta2Npidn",
 }
 
 filter_cols = {

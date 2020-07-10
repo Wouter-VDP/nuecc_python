@@ -17,6 +17,8 @@ Sample_dict = {
     "train_nc_pi0" : 85,
     "train_cc_pi0" : 86, #not used yet
     "train_nopi_tight" : 87,
-    "beam_sideband" : 9
+    "beam_sideband" : 9,
+    "fake" : 1,
+    "DetVar" : 10
     }    
     
