@@ -116,6 +116,7 @@ table_cols = {
     "true_nu_vtx_y",
     "true_nu_vtx_z",
     "n_pfps",
+    "slpdg",
     "interaction",
     "weightSpline",
     "weightSplineTimesTune",

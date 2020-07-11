@@ -15,7 +15,7 @@ for fn in files:
     if run not in pot_dict:
         pot_dict[run] = {}
 
-    if on_or_off == 'on':
+    if on_or_off == 'on' or on_or_off == 'sideband':
         on = check_output("/uboone/app/users/zarko/getDataInfo.py -v2 --run-subrun-list {}".format(fn), shell=True)
         lines= on.split('\n')
         pot_dict[run][lines[1].split()[7]]=lines[2].split()[7]

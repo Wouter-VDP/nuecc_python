@@ -24,12 +24,14 @@ pot_target = 1e21
 # Final selection BDT cut
 cut_val = 0.87  # 0.
 # For DetVar samples, remove all genie and flux weights
-rm_syst_w = True
+rm_syst_w = False
+broadcaster = 'pdg12_broadcast'
 
 # ### Definitions ###
 
 # Manipulate the input frames and perform the selection
 def SelectNues(sample, data):
+    
     if sample in helper.data_samples:
         data["daughters"]["optical_filter"] = True
     else:
@@ -39,13 +41,8 @@ def SelectNues(sample, data):
         AddSimulatedFields(sample, data)
         AddNueCategories(data["daughters"])
 
-    FixSidebandRuns(data["daughters"])
-    
-    # grouper needs to work:
-    if 'sample' not in data["daughters"].columns:
-        global grouper
-        grouper = ["event"]
-        
+    FixRuns(data["daughters"])
+
     AddRecoFields(data["daughters"])
     AddOtherDaughterAngleDiff(data["daughters"])
     PrepareTraining(data["daughters"])
@@ -58,26 +55,14 @@ def SelectNues(sample, data):
     )
 
 
-# Convert the systematic weights from jagged arrays to numpy float16 matrices.
 def ConvertWeights(sample, mc_data):
     for w in helper.syst_weights:
         if rm_syst_w:
             mc_data[w] = None
-        #else:  # This is not done on the grid in the merger module
-        #    mc_data[w] = np.clip(
-        #        np.nan_to_num(
-        #            mc_data[w][mc_data[w].counts > 0].regular().astype("float16"),
-        #            nan=1,
-        #            posinf=1,
-        #            neginf=1,
-        #        ),
-        #        0,
-        #        100,
-        #    )
 
 
 # Fix the Run period for the sideband sample
-def FixSidebandRuns(daughters):
+def FixRuns(daughters):
     run2 = 8316
     run3 = 13696
     daughters.eval("Run = 1 + (run>@run2) + (run>@run3)", inplace=True)
@@ -183,6 +168,7 @@ def AddRecoFields(daughters):
 def AddOtherDaughterAngleDiff(daughters):
     e_pre_temp = daughters.query("e_candidate & preselect")
     pre_temp = daughters.query("~e_candidate & preselect")
+
     dir_e_x = np.repeat(
         e_pre_temp.eval("trk_sce_end_x_v-trk_sce_start_x_v"), e_pre_temp["n_pfps"] - 1
     ).values
@@ -288,7 +274,7 @@ def AddSimulatedFields(k, v):
     reco_vtx[0] -= x_sce_magic  # Correct x location
     v["daughters"]["true_vtx_distance"] = np.repeat(
         np.linalg.norm(true_vtx - reco_vtx, axis=0),
-        v["mc"]["n_pfps"][v["mc"]["n_pfps"] > 0],
+        v["mc"][pdg12_broadcast],
     )
 
     # Add the modified purity/completeness to account for overlay.
@@ -308,7 +294,7 @@ def AddSimulatedFields(k, v):
     ## add truth fields:
     for true_f in columns.add_mc_fields:
         if true_f in v["mc"]:
-            v["daughters"][true_f] = np.repeat(v["mc"][true_f], v["mc"]["n_pfps"])
+            v["daughters"][true_f] = np.repeat(v["mc"][true_f], v["mc"][pdg12_broadcast])
         else:
             print("Truth field {} is not in sample {}".format(true_f, k))
 
@@ -319,7 +305,7 @@ def AddSimulatedFields(k, v):
             v["mc"]["true_nu_vtx_y"],
             v["mc"]["true_nu_vtx_z"],
         ),
-        v["mc"]["n_pfps"],
+        v["mc"][pdg12_broadcast],
     )
 
 
@@ -360,7 +346,7 @@ def CreateAfterTraining(plot_samples, input_dir, one_file=False):
         start_time = time.time()
         sample_file = min([f for f in available_samples if sample in f], key=len)
         data = pd.read_pickle(input_dir + sample_file)
-
+        print("---", sample, "number of events:", data['numentries'],"---")
         # data is passed by reference and not copied
         sel_str = SelectNues(sample, data)
 
@@ -379,6 +365,7 @@ def CreateAfterTraining(plot_samples, input_dir, one_file=False):
         )
         print(sel_str + "\n")
     if one_file:
+        print('Started writing pickled output file...')
         pickle_out = open(one_file, "wb")
-        pickle.dump(all_samples, pickle_out)
+        pickle.dump(all_samples, pickle_out, protocol=pickle.HIGHEST_PROTOCOL)
         pickle_out.close()

@@ -7,7 +7,8 @@ from enum_sample import Sample_dict
 input_dir = "/uboone/data/users/wvdp/searchingfornues/July2020/combined/"
 target_pot = 1e21
 training = False
-remove_universes = True
+remove_universes = False
+reduce_query = 'slpdg==12'
 grouper = ["sample", "Run", "event"]
 
 # train = pickle.load(open(input_dir + "train_slimmed.pckl", "rb"))
@@ -60,22 +61,22 @@ for sample_type, sample_enum in Sample_dict.items():
 
 
 # Method two to validate inclusion of filters
-for sample_name, sample_dict in input_samples.items():
-    # filter_cat?
-    print(
-        "\n",
-        sample_name,
-        "\n",
-        np.unique(sample_dict["mc"]["filter"], return_counts=True),
-        "\n",
-    )
-    # pot and event number?
-    for sample_tuple, pot in sample_dict["pot"].items():
-        num_events = sum(
-            (sample_dict["mc"]["sample"] == sample_tuple[0])
-            & (sample_dict["mc"]["Run"] == sample_tuple[1])
-        )
-        print("\t", sample_tuple, "\t POT:", pot, "\t events", num_events)
+#for sample_name, sample_dict in input_samples.items():
+#    # filter_cat?
+#    print(
+#        "\n",
+#        sample_name,
+#        "\n",
+#        np.unique(sample_dict["mc"]["filter"], return_counts=True),
+#        "\n",
+#    )
+#    # pot and event number?
+#    for sample_tuple, pot in sample_dict["pot"].items():
+#        num_events = sum(
+#            (sample_dict["mc"]["sample"] == sample_tuple[0])
+#            & (sample_dict["mc"]["Run"] == sample_tuple[1])
+#        )
+#        print("\t", sample_tuple, "\t POT:", pot, "\t events", num_events)
 
 ### Construct new scales
 
@@ -95,7 +96,6 @@ total_pot = {
     for sample in np.unique(filtered["mc"]["sample"])
 }
 for i, pot in total_pot.items():
-    print("filter: sample:", i, "pot", pot)
     filtered_mc_scale += target_pot / pot * (filtered["mc"]["filter"] == i)
 filtered_daughter_mask = np.repeat(filtered_mc_scale != 0, filtered["mc"]["n_pfps"])
 
@@ -103,6 +103,18 @@ filtered_daughter_mask = np.repeat(filtered_mc_scale != 0, filtered["mc"]["n_pfp
 ### Construct new samples
 
 nu_new = {}
+
+daughters = [
+    nu["daughters"][nu_daughter_mask],
+    nue["daughters"][nue_daughter_mask],
+    filtered["daughters"][filtered_daughter_mask],
+]
+nu_new["daughters"] = pd.concat(
+    daughters, sort=False, verify_integrity=True, copy=False
+)
+slpdg_mask = nu_new["daughters"].xs(0, level='daughter').eval(reduce_query)
+nu_new["daughters"].query(reduce_query, inplace=True)
+nu_new["daughters"].index.names = ["sample", "Run", "event", "daughter"]
 
 nu_new["mc"] = {}
 truth = [nu["mc"], nue["mc"], filtered["mc"]]
@@ -115,6 +127,7 @@ for col_mc in truth[0].keys():
         if remove_universes:
             nu_new["mc"][col_mc] = None
         else:
+            # Convert the systematic weights from jagged arrays to numpy float16 matrices.
             nu_new["mc"][col_mc] = np.clip(
                 np.nan_to_num(
                     nu_new["mc"][col_mc][nu_new["mc"][col_mc].counts > 0]
@@ -126,7 +139,7 @@ for col_mc in truth[0].keys():
                 ),
                 0,
                 100,
-            )
+            )[slpdg_mask]
 
 nu_new["mc"]["event_scale"] = np.hstack(
     [
@@ -136,15 +149,7 @@ nu_new["mc"]["event_scale"] = np.hstack(
     ]
 )
 nu_new["numentries"] = len(nu_new["mc"]["event_scale"])
-daughters = [
-    nu["daughters"][nu_daughter_mask],
-    nue["daughters"][nue_daughter_mask],
-    filtered["daughters"][filtered_daughter_mask],
-]
-nu_new["daughters"] = pd.concat(
-    daughters, sort=False, verify_integrity=True, copy=False
-)
-nu_new["daughters"].index.names = ["sample", "Run", "event", "daughter"]
+
 
 print("Start pickling with protocol:", pickle.HIGHEST_PROTOCOL)
 pickle.dump(
@@ -198,5 +203,5 @@ if training:
 
     pickle.dump(training_new, open(input_dir + "train_new_slimmed.pckl", "wb"))
 
-    assert sum(training_new["mc"]["n_pfps"]) == len(training_new["daughters"])
+    assert sum(training_new["mc"]["pdg12_broadcast"]) == len(training_new["daughters"])
     del training_new

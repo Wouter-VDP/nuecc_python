@@ -18,16 +18,17 @@ dir_path = "/uboone/data/users/wvdp/searchingfornues/July2020/"
 # for every entry in this dict, one output pickle will be created.
 # the subdicts describes in which folder to look for input root files with the dict key names.
 out_samples = {
+    "nue": ["run1", "run3"],
     "beam_on": ["run1", "run3"],
-    # "beam_off": ["run1", "run2", "run3"],
-    # "nu": ["run1", "run3"],
-    # "nue": ["run1", "run3"],
-    # "dirt": ["run1", "run3"],
-    # "filter": ["run1", "run3"],
-    # "set1": ["fake/run1", "fake/run3"],
-    # "set2": ["fake/run1", "fake/run3"],
-    # "set3": ["fake/run1", "fake/run3"],
-    # "set4": ["fake/run1", "fake/run3"],
+    "beam_off": ["run1", "run2", "run3"],
+    "nu": ["run1", "run3"],
+    "dirt": ["run1", "run3"],
+    "filter": ["run1", "run3"],
+    "set1": ["fake/run1", "fake/run3"],
+    "set2": ["fake/run1", "fake/run3"],
+    "set3": ["fake/run1", "fake/run3"],
+    "set4": ["fake/run1", "fake/run3"],
+    "beam_sideband": ['sideband']
 }
 
 ### Fiducial volume
@@ -129,7 +130,8 @@ def load_truth_event(tree, period, sample_enum):
     mc_arrays["optical_filter"] = (tree.array("_opfilter_pe_beam") > 0) & (
         tree.array("_opfilter_pe_veto") < 20
     )
-
+    mc_arrays['pdg12_broadcast'] = (tree.array("slpdg")==12) * tree.array("n_pfps")
+    mc_arrays['pdg14_broadcast'] = (tree.array("slpdg")==14) * tree.array("n_pfps")
     # add the systematic weights for events with a slice:
     for col_mc in ["weightsFlux", "weightsGenie", "weightsReint"]:
         # mc_arrays[col_mc] = (tree.array(col_mc)*(tree.array('nslice')==1)).astype(np.float16).regular()
@@ -211,7 +213,7 @@ def load_this_sample(sample_name, root_files):
                 data_scaling = pd.read_csv(
                     scaling_file_name, index_col=0, sep="\t", header=None
                 ).T.iloc[0]
-                if "on" in sample_name:
+                if  sample_name in ["on", 'sideband']:
                     d["pot"][(sample_enum, period)] = data_scaling["tor875_wcut"]
                     d["triggers"][(sample_enum, period)] = data_scaling["E1DCNT_wcut"]
                 if "off" in sample_name:

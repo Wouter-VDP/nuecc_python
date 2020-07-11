@@ -12,7 +12,7 @@ gr = 1.618
 mass_p = 0.93827
 min_p_energy = mass_p + 0.04
 min_e_energy = 0.020
-data_samples = {"on", "off", "sideband",'fake'}
+data_samples = {"on", "off", "sideband",'set1','set2','set3','set4'}
 syst_weights = ["weightsFlux", "weightsGenie"]
 
 ### Electron and preselection queries
