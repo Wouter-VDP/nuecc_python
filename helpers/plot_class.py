@@ -84,9 +84,11 @@ class Plotter:
 
         # Default values loaded and can be overwritten with dict.
         print('data[beam_on]["pot"]', data[beam_on]["pot"])
+        print('data[beam_on]["triggers"]', data[beam_on]["triggers"])
+        print('data[beam_off]["triggers"]', data['off']["triggers"])
         data[beam_on]["pot"] = sum(data[beam_on]["pot"].values())
         data[beam_on]["triggers"] = sum(data[beam_on]["triggers"].values())
-        data["off"]["triggers"] = sum(data['off']["triggers"].values())
+        data["off"]["triggers"] = sum(data["off"]["triggers"].values())
         if len(pot_dict):
             if "pot" in pot_dict:
                 data[beam_on]["pot"] = pot_dict["pot"]
@@ -94,7 +96,7 @@ class Plotter:
                 data[beam_on]["triggers"] = pot_dict["E1DCNT_wcut"]
             if "EXT" in pot_dict:
                 data["off"]["triggers"] = pot_dict["EXT"]
-            
+
         self.title_str = r"MicroBooNE {:.1e}$\,$POT, Preliminary".format(
             data[beam_on]["pot"]
         ).replace("+", "")
@@ -187,7 +189,7 @@ class Plotter:
             if load_syst:
                 dirt_eval_grouped = dirt_eval.groupby(self.grouper, sort=False).max()
                 nu_eval_grouped = nu_eval.groupby(self.grouper, sort=False).max()
-                print('Applying the master query on the systematic universes')
+                print("Applying the master query on the systematic universes")
                 for type_w in load_syst:
                     print(type_w)
                     data["nu"]["mc"][type_w] = data["nu"]["mc"][type_w][
@@ -219,6 +221,7 @@ class Plotter:
                 )
             )
         weights_nom = np.hstack(weights_nom)
+        print("[get_purity] collected weights, calling helpfunction.effErr")
         purity, error_purity = helpfunction.effErr(weights_nom, weights_denom)
 
         return purity, error_purity
@@ -245,16 +248,26 @@ class Plotter:
             else:
                 mask = np.array(mask.astype(np.bool))
                 for type_sys, weights in self.syst_weights.items():
+                    print(weights)
+                    # new, vectorised
+                    #n_syst_i = np.sum(weights[mask], axis=0)
+                    #print('mc_weights', mc_weights)
+                    #print('n_syst_i', np.median(n_syst_i), n_syst_i.shape)
+                    #cov += sum((n_syst_i - mc_weights) ** 2)
+                    #print("cov", cov)
+                    #cov /= n_syst_i.shape[0]
                     n_uni += weights.shape[1]
-                    for i in range(weights.shape[1]):
-                        n_syst_i = np.sum(weights[mask].T[i])
-                        cov += (n_syst_i - mc_weights) ** 2
+                    n_syst_i = np.sum(weights[mask], axis=0)
+                    cov += sum((n_syst_i - mc_weights) ** 2)
                 cov /= n_uni
             err_mc = cov + np.sum(np.square(mc_weight_arr))
+            print('err_mc', err_mc)
             err_ratio = ratio1 * np.sqrt(
                 err_data / (on_weights - off_weights) ** 2 + err_mc / mc_weights ** 2
             )
+            print(err_ratio)
             ratio[2] = err_ratio
+        print("[get_ratio_and_purity] calculated ratio, starting purity")
         purity = self.get_purity(query, self.cats)
         return (
             ratio,
