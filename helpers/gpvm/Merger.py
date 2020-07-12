@@ -83,10 +83,12 @@ for sample_type, sample_enum in Sample_dict.items():
 # nue sample -> easy, keep everything!
 nue_mc_scale = np.full(len(nue["mc"]["Run"]), target_pot / sum(nue["pot"].values()))
 nue_daughter_mask = np.repeat(nue_mc_scale != 0, nue["mc"]["n_pfps"])
+nue_universe_mask = (nue["mc"]['nslice']==1)
 
 # nu sample, keep if filter is 0
 nu_mc_scale = target_pot / sum(nu["pot"].values()) * (nu["mc"]["filter"] == 0)
 nu_daughter_mask = np.repeat(nu_mc_scale != 0, nu["mc"]["n_pfps"])
+nu_universe_mask = (nu["mc"]['nslice']==1) & (nu["mc"]["filter"] == 0)
 
 # filtered sample
 total_entries = len(filtered["mc"]["Run"])
@@ -98,6 +100,7 @@ total_pot = {
 for i, pot in total_pot.items():
     filtered_mc_scale += target_pot / pot * (filtered["mc"]["filter"] == i)
 filtered_daughter_mask = np.repeat(filtered_mc_scale != 0, filtered["mc"]["n_pfps"])
+filtered_universe_mask = (filtered["mc"]['nslice']==1) & (filtered["mc"]["filter"] != 0)
 
 
 ### Construct new samples
@@ -119,27 +122,17 @@ nu_new["daughters"].index.names = ["sample", "Run", "event", "daughter"]
 nu_new["mc"] = {}
 truth = [nu["mc"], nue["mc"], filtered["mc"]]
 truth_mask = [nu_mc_scale != 0, nue_mc_scale != 0, filtered_mc_scale != 0]
+universe_mask = [nu_universe_mask, nue_universe_mask, filtered_universe_mask]
 for col_mc in truth[0].keys():
-    nu_new["mc"][col_mc] = awkward.concatenate(
-        [t[col_mc][b] for t, b in zip(truth, truth_mask)]
-    )
     if col_mc in ["weightsFlux", "weightsGenie", "weightsReint"]:
         if remove_universes:
             nu_new["mc"][col_mc] = None
         else:
-            # Convert the systematic weights from jagged arrays to numpy float16 matrices.
-            nu_new["mc"][col_mc] = np.clip(
-                np.nan_to_num(
-                    nu_new["mc"][col_mc][nu_new["mc"][col_mc].counts > 0]
-                    .regular()
-                    .astype("float16"),
-                    nan=1,
-                    posinf=1,
-                    neginf=1,
-                ),
-                0,
-                100,
-            )[slpdg_mask]
+            nu_new["mc"][col_mc] = np.hstack([t[col_mc][b] for t, b in zip(truth, universe_mask)])[slpdg_mask]
+    else:
+        nu_new["mc"][col_mc] = awkward.concatenate(
+            [t[col_mc][b] for t, b in zip(truth, truth_mask)]
+        )
 
 nu_new["mc"]["event_scale"] = np.hstack(
     [

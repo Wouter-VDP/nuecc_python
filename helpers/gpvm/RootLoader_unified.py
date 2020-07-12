@@ -19,16 +19,16 @@ dir_path = "/uboone/data/users/wvdp/searchingfornues/July2020/"
 # the subdicts describes in which folder to look for input root files with the dict key names.
 out_samples = {
     "nue": ["run1", "run3"],
-    "beam_on": ["run1", "run3"],
-    "beam_off": ["run1", "run2", "run3"],
+    #"beam_on": ["run1", "run3"],
+    #"beam_off": ["run1", "run2", "run3"],
     "nu": ["run1", "run3"],
     "dirt": ["run1", "run3"],
     "filter": ["run1", "run3"],
-    "set1": ["fake/run1", "fake/run3"],
-    "set2": ["fake/run1", "fake/run3"],
-    "set3": ["fake/run1", "fake/run3"],
-    "set4": ["fake/run1", "fake/run3"],
-    "beam_sideband": ['sideband']
+    #"set1": ["fake/run1", "fake/run3"],
+    #"set2": ["fake/run1", "fake/run3"],
+    #"set3": ["fake/run1", "fake/run3"],
+    #"set4": ["fake/run1", "fake/run3"],
+    #"beam_sideband": ["sideband"],
 }
 
 ### Fiducial volume
@@ -130,14 +130,13 @@ def load_truth_event(tree, period, sample_enum):
     mc_arrays["optical_filter"] = (tree.array("_opfilter_pe_beam") > 0) & (
         tree.array("_opfilter_pe_veto") < 20
     )
-    mc_arrays['pdg12_broadcast'] = (tree.array("slpdg")==12) * tree.array("n_pfps")
-    mc_arrays['pdg14_broadcast'] = (tree.array("slpdg")==14) * tree.array("n_pfps")
+    mc_arrays["pdg12_broadcast"] = (tree.array("slpdg") == 12) * tree.array("n_pfps")
+    mc_arrays["pdg14_broadcast"] = (tree.array("slpdg") == 14) * tree.array("n_pfps")
     # add the systematic weights for events with a slice:
     for col_mc in ["weightsFlux", "weightsGenie", "weightsReint"]:
-        # mc_arrays[col_mc] = (tree.array(col_mc)*(tree.array('nslice')==1)).astype(np.float16).regular()
-        jagged_mc = tree.array(col_mc).astype(np.float16)
-        mask_mc = (jagged_mc.ones_like() * tree.array("nslice")).astype(np.bool)
-        mc_arrays[col_mc] = jagged_mc[mask_mc]
+        # Save the universes as float16 in a block numpy array for all events with a slice
+        jagged_mc = (tree.array(col_mc)/1000).astype(np.float16)[tree.array("nslice")].regular()
+        mc_arrays[col_mc] = np.clip(np.nan_to_num(jagged_mc,nan=1,posinf=1,neginf=1,),0,100)
 
     print("\t\t", np.unique(filter_cat, return_counts=True))
 
@@ -213,11 +212,14 @@ def load_this_sample(sample_name, root_files):
                 data_scaling = pd.read_csv(
                     scaling_file_name, index_col=0, sep="\t", header=None
                 ).T.iloc[0]
-                if  sample_name in ["on", 'sideband']:
+                print('data_scaling', data_scaling)
+                if sample_name in ["beam_on", "beam_sideband"]:
                     d["pot"][(sample_enum, period)] = data_scaling["tor875_wcut"]
                     d["triggers"][(sample_enum, period)] = data_scaling["E1DCNT_wcut"]
-                if "off" in sample_name:
+                    print(d["pot"][(sample_enum, period)])
+                elif "off" in sample_name:
                     d["triggers"][(sample_enum, period)] = data_scaling["EXT"]
+                    print(d["triggers"][(sample_enum, period)])
             else:  # fake datasets
                 this_pot = uproot_file["SubRun"].array("pot").sum()
                 d["pot"][(sample_enum, period)] = this_pot

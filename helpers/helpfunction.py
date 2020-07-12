@@ -13,7 +13,7 @@ mass_p = 0.93827
 min_p_energy = mass_p + 0.04
 min_e_energy = 0.020
 data_samples = {"on", "off", "sideband",'set1','set2','set3','set4'}
-syst_weights = ["weightsFlux", "weightsGenie"]
+syst_weights = ["weightsFlux", "weightsGenie", 'weightsReint']
 
 ### Electron and preselection queries
 e_cand_str = "pfp_clusters_v==3 & \
@@ -35,23 +35,23 @@ query_preselect = "optical_filter & \
                    contained_fraction>0.4"
 
 ### POT factors
-pot_dict = {
-    "sideband": {},
-    # "sideband12": {"pot": 3.988e20, "E1DCNT_wcut": 92086705},
-    # "sideband3": {"pot": 1.842e20, "E1DCNT_wcut": 44050047},
-    "sideband12": {"pot": 4.279e20, "E1DCNT_wcut": 99029235},
-    "sideband3": {"pot": 2.561e20, "E1DCNT_wcut": 61214217},
-    "ext12": 186993192,
-    "ext3": 86991453,
-    "fake": {"pot": 5.01e20, "E1DCNT_wcut": 0}
-}
-pot_dict["sideband"]["pot"] = (
-    pot_dict["sideband12"]["pot"] + pot_dict["sideband3"]["pot"]
-)
-pot_dict["sideband"]["E1DCNT_wcut"] = (
-    pot_dict["sideband12"]["E1DCNT_wcut"] + pot_dict["sideband3"]["E1DCNT_wcut"]
-)
-pot_dict["ext"] = pot_dict["ext12"] + pot_dict["ext3"]
+# pot_dict = {
+#     "sideband": {},
+#     # "sideband12": {"pot": 3.988e20, "E1DCNT_wcut": 92086705},
+#     # "sideband3": {"pot": 1.842e20, "E1DCNT_wcut": 44050047},
+#     "sideband12": {"pot": 4.279e20, "E1DCNT_wcut": 99029235},
+#     "sideband3": {"pot": 2.561e20, "E1DCNT_wcut": 61214217},
+#     "ext12": 186993192,
+#     "ext3": 86991453,
+#     "fake": {"pot": 5.01e20, "E1DCNT_wcut": 0}
+# }
+# pot_dict["sideband"]["pot"] = (
+#     pot_dict["sideband12"]["pot"] + pot_dict["sideband3"]["pot"]
+# )
+# pot_dict["sideband"]["E1DCNT_wcut"] = (
+#     pot_dict["sideband12"]["E1DCNT_wcut"] + pot_dict["sideband3"]["E1DCNT_wcut"]
+# )
+# pot_dict["ext"] = pot_dict["ext12"] + pot_dict["ext3"]
 
 ### Labels for angle plots
 phi_ticks = [-np.pi, -np.pi / 2, 0, np.pi / 2, np.pi]

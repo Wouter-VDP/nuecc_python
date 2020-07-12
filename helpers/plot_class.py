@@ -82,13 +82,19 @@ class Plotter:
                     "Empirical scaling of 1-0.4*E applied on events with neutral pions."
                 )
 
+        # Default values loaded and can be overwritten with dict.
+        print('data[beam_on]["pot"]', data[beam_on]["pot"])
+        data[beam_on]["pot"] = sum(data[beam_on]["pot"].values())
+        data[beam_on]["triggers"] = sum(data[beam_on]["triggers"].values())
+        data["off"]["triggers"] = sum(data['off']["triggers"].values())
         if len(pot_dict):
             if "pot" in pot_dict:
                 data[beam_on]["pot"] = pot_dict["pot"]
             if "E1DCNT_wcut" in pot_dict:
-                data[beam_on]["E1DCNT_wcut"] = pot_dict["E1DCNT_wcut"]
+                data[beam_on]["triggers"] = pot_dict["E1DCNT_wcut"]
             if "EXT" in pot_dict:
-                data["off"]["EXT"] = pot_dict["EXT"]
+                data["off"]["triggers"] = pot_dict["EXT"]
+            
         self.title_str = r"MicroBooNE {:.1e}$\,$POT, Preliminary".format(
             data[beam_on]["pot"]
         ).replace("+", "")
@@ -105,7 +111,7 @@ class Plotter:
         )
 
         data[beam_on]["daughters"]["plot_weight"] = norm_scale
-        data["off"]["scaling"] = data[beam_on]["E1DCNT_wcut"] / data["off"]["EXT"]
+        data["off"]["scaling"] = data[beam_on]["triggers"] / data["off"]["triggers"]
         data["off"]["daughters"]["plot_weight"] = data["off"]["scaling"] * norm_scale
 
         self.on_daughters = data[beam_on]["daughters"]
@@ -133,7 +139,7 @@ class Plotter:
                 self.mc_daughters["plot_weight"]
                 .groupby(self.grouper, sort=False)
                 .first()
-                .astype(np.float32)
+                .astype(np.float16)
             )
             print()
             for type_w in load_syst:
@@ -144,7 +150,7 @@ class Plotter:
                         ),
                         plot_weight[:, np.newaxis],
                     )
-                ).astype(np.float32)
+                ).astype(np.float16)
                 print("Loaded all universes for {}.".format(type_w))
 
         del data
@@ -181,13 +187,15 @@ class Plotter:
             if load_syst:
                 dirt_eval_grouped = dirt_eval.groupby(self.grouper, sort=False).max()
                 nu_eval_grouped = nu_eval.groupby(self.grouper, sort=False).max()
+                print('Applying the master query on the systematic universes')
                 for type_w in load_syst:
+                    print(type_w)
                     data["nu"]["mc"][type_w] = data["nu"]["mc"][type_w][
                         nu_eval_grouped
-                    ].astype(np.float32)
+                    ].astype(np.float16)
                     data["dirt"]["mc"][type_w] = data["dirt"]["mc"][type_w][
                         dirt_eval_grouped
-                    ].astype(np.float32)
+                    ].astype(np.float16)
 
         data["dirt"]["daughters"]["category"] = 7
         data["dirt"]["daughters"]["cat_int"] = 7
@@ -598,10 +606,10 @@ def efficiency(
     if conf_level is None:
         conf_level = 0.682689492137
 
-    num = np.asarray(num, dtype=np.float32)
-    num_w = np.asarray(num_w, dtype=np.float32)
-    den = np.asarray(den, dtype=np.float32)
-    den_w = np.asarray(den_w, dtype=np.float32)
+    num = np.asarray(num, dtype=np.float16)
+    num_w = np.asarray(num_w, dtype=np.float16)
+    den = np.asarray(den, dtype=np.float16)
+    den_w = np.asarray(den_w, dtype=np.float16)
 
     bins = np.linspace(x_min, x_max, n_bins)
 

@@ -25,13 +25,19 @@ pot_target = 1e21
 cut_val = 0.87  # 0.
 # For DetVar samples, remove all genie and flux weights
 rm_syst_w = False
-broadcaster = 'pdg12_broadcast'
+# field in mc array which can be used to broadcast to the daughter frame
+broadcaster = None
 
 # ### Definitions ###
 
 # Manipulate the input frames and perform the selection
 def SelectNues(sample, data):
-    
+    global broadcaster
+    if sample == 'nu':
+        broadcaster = 'pdg12_broadcast'
+    else:
+        broadcaster = 'n_pfps'
+        
     if sample in helper.data_samples:
         data["daughters"]["optical_filter"] = True
     else:
@@ -261,9 +267,22 @@ def PerformEventClassification(daughters, cut_val):
 
 # Add truth based fields to the daughter dataframe
 def AddSimulatedFields(k, v):
+    # Pi0 scaling
+    pi0_max_e = 0.6
+    v["mc"]["weightSplineTimesTune_pi0scaled"] = v["mc"]["weightSplineTimesTune"] * (
+        1 - 0.4 * v["mc"]["mc_E"][v["mc"]["mc_pdg"] == 111].max().clip(0, pi0_max_e)
+    )
+    
+    ## add truth fields:
+    for true_f in columns.add_mc_fields:
+        if true_f in v["mc"]:
+            v["daughters"][true_f] = np.repeat(v["mc"][true_f], v["mc"][broadcaster])
+        else:
+            print("Truth field {} is not in sample {}".format(true_f, k))
+            
     # Add distance between reco_sce and true vertex
     true_vtx = [
-        v["mc"][f][v["mc"]["n_pfps"] > 0]
+        v["mc"][f][v["mc"][broadcaster] > 0]
         for f in ["true_nu_vtx_x", "true_nu_vtx_y", "true_nu_vtx_z"]
     ]
     reco_vtx = (
@@ -271,10 +290,11 @@ def AddSimulatedFields(k, v):
         .xs(0, level="daughter")
         .values.T
     )
+    
     reco_vtx[0] -= x_sce_magic  # Correct x location
     v["daughters"]["true_vtx_distance"] = np.repeat(
         np.linalg.norm(true_vtx - reco_vtx, axis=0),
-        v["mc"][pdg12_broadcast],
+        v["mc"][broadcaster][v["mc"][broadcaster]>0],
     )
 
     # Add the modified purity/completeness to account for overlay.
@@ -285,19 +305,6 @@ def AddSimulatedFields(k, v):
     ]
     v["daughters"].loc[overlay_mask, "backtracked_completeness"] = 0
 
-    # Pi0 scaling
-    pi0_max_e = 0.6
-    v["mc"]["weightSplineTimesTune_pi0scaled"] = v["mc"]["weightSplineTimesTune"] * (
-        1 - 0.4 * v["mc"]["mc_E"][v["mc"]["mc_pdg"] == 111].max().clip(0, pi0_max_e)
-    )
-
-    ## add truth fields:
-    for true_f in columns.add_mc_fields:
-        if true_f in v["mc"]:
-            v["daughters"][true_f] = np.repeat(v["mc"][true_f], v["mc"][pdg12_broadcast])
-        else:
-            print("Truth field {} is not in sample {}".format(true_f, k))
-
     # add true fiducial colume:
     v["daughters"]["true_fid_vol"] = np.repeat(
         helper.is_fid(
@@ -305,7 +312,7 @@ def AddSimulatedFields(k, v):
             v["mc"]["true_nu_vtx_y"],
             v["mc"]["true_nu_vtx_z"],
         ),
-        v["mc"][pdg12_broadcast],
+        v["mc"][broadcaster],
     )
 
 
