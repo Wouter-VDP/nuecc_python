@@ -481,7 +481,8 @@ class Plotter:
                 3 / (1 / beam_on_bins + 2 / prediction),
                 prediction / 2 + beam_on_bins,
             )
-            cov[np.diag_indices_from(cov)] += err_combined2 + err_stat_cnp
+            # overwrite the diagonal elements and add the MC/EXT stat and CNP contributions
+            cov[np.diag_indices_from(cov)] = err_combined2 + err_stat_cnp
             diff = beam_on_bins - prediction
             chisq = diff.dot(np.linalg.inv(cov)).dot(diff.T)
             chisq_p = 1 - scipy.stats.chi2.cdf(chisq, N_bins)
@@ -563,7 +564,7 @@ class Plotter:
             for type_sys, weights in self.syst_weights.items():
                 n_uni = min(weights.shape[1], self.n_uni_max)
                 # Method 1
-                start = time.time()
+                #start = time.time()
                 cov_this = np.zeros([N_bins, N_bins])
                 for i in range(n_uni):
                     n, _ = np.histogram(

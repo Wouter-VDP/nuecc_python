@@ -38,15 +38,16 @@ def SelectNues(sample, data):
     else:
         broadcaster = "n_pfps"
 
-    if sample in helper.data_samples:
-        data["daughters"]["optical_filter"] = True
-    else:
+    if sample not in helper.data_samples:
         if sample == "dirt":
             FixDirtWeights(data["mc"], sum(data["pot"].values()))
         ConvertWeights(sample, data["mc"])
         AddSimulatedFields(sample, data)
         AddNueCategories(data["daughters"])
         data["daughters"]["true_category"] = AddTrueCategories(data["mc"])
+    if "optical_filter" not in data["daughters"]:
+        data["daughters"]["optical_filter"] = True
+        print('Optical filter set to true for sample', sample)
 
     FixRuns(data["daughters"])
 
