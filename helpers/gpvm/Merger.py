@@ -83,12 +83,12 @@ for sample_type, sample_enum in Sample_dict.items():
 # nue sample -> easy, keep everything!
 nue_mc_scale = np.full(len(nue["mc"]["Run"]), target_pot / sum(nue["pot"].values()))
 nue_daughter_mask = np.repeat(nue_mc_scale != 0, nue["mc"]["n_pfps"])
-nue_universe_mask = (nue["mc"]['nslice']==1)
+nue_universe_mask = np.ones(sum(nue["mc"]['n_pfps']>0), dtype=np.bool)
 
 # nu sample, keep if filter is 0
 nu_mc_scale = target_pot / sum(nu["pot"].values()) * (nu["mc"]["filter"] == 0)
 nu_daughter_mask = np.repeat(nu_mc_scale != 0, nu["mc"]["n_pfps"])
-nu_universe_mask = (nu["mc"]['nslice']==1) & (nu["mc"]["filter"] == 0)
+nu_universe_mask = (nu["mc"]["filter"] == 0)[nu["mc"]['n_pfps']>0]
 
 # filtered sample
 total_entries = len(filtered["mc"]["Run"])
@@ -97,10 +97,11 @@ total_pot = {
     sample: sum([filtered["pot"][k] for k in filtered["pot"] if k[0] == sample])
     for sample in np.unique(filtered["mc"]["sample"])
 }
+print(total_pot)
 for i, pot in total_pot.items():
     filtered_mc_scale += target_pot / pot * (filtered["mc"]["filter"] == i)
 filtered_daughter_mask = np.repeat(filtered_mc_scale != 0, filtered["mc"]["n_pfps"])
-filtered_universe_mask = (filtered["mc"]['nslice']==1) & (filtered["mc"]["filter"] != 0)
+filtered_universe_mask = (filtered["mc"]["filter"] != 0)[filtered["mc"]['n_pfps']>0]
 
 
 ### Construct new samples
@@ -128,7 +129,8 @@ for col_mc in truth[0].keys():
         if remove_universes:
             nu_new["mc"][col_mc] = None
         else:
-            nu_new["mc"][col_mc] = np.hstack([t[col_mc][b] for t, b in zip(truth, universe_mask)])[slpdg_mask]
+            nu_new["mc"][col_mc] = np.vstack([t[col_mc][b] for t, b in zip(truth, universe_mask)])
+            nu_new["mc"][col_mc] = nu_new["mc"][col_mc][slpdg_mask]
     else:
         nu_new["mc"][col_mc] = awkward.concatenate(
             [t[col_mc][b] for t, b in zip(truth, truth_mask)]
@@ -150,8 +152,6 @@ pickle.dump(
     open(input_dir + "nu_new_slimmed.pckl", "wb"),
     protocol=pickle.HIGHEST_PROTOCOL,
 )
-
-assert sum(nu_new["mc"]["n_pfps"]) == len(nu_new["daughters"])
 assert nu_new["numentries"] == len(nu_new["mc"]["n_pfps"])
 
 print(

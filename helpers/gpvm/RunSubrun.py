@@ -15,5 +15,8 @@ for fn in files:
     out_title = Path(fn).stem
     out_name = str(Path(fn).parent) + "/run_subrun_" + out_title + ".txt"
     print(out_title)
-    run_subrun = np.array(tree.arrays(["run", "subRun"], outputtype=pd.DataFrame))
-    np.savetxt(out_name, run_subrun, fmt="%d")
+    run_subrun = tree.arrays(["run", "subRun"], outputtype=pd.DataFrame)
+    print('Number of rows before duplicates:', len(run_subrun))
+    run_subrun.drop_duplicates(keep='first', inplace=True)
+    print('Number of rows after removing duplicates:', len(run_subrun))
+    np.savetxt(out_name, np.array(run_subrun), fmt="%d")

@@ -33,11 +33,11 @@ broadcaster = None
 # Manipulate the input frames and perform the selection
 def SelectNues(sample, data):
     global broadcaster
-    if sample == 'nu':
-        broadcaster = 'pdg12_broadcast'
+    if sample == "nu":
+        broadcaster = "pdg12_broadcast"
     else:
-        broadcaster = 'n_pfps'
-        
+        broadcaster = "n_pfps"
+
     if sample in helper.data_samples:
         data["daughters"]["optical_filter"] = True
     else:
@@ -46,6 +46,7 @@ def SelectNues(sample, data):
         ConvertWeights(sample, data["mc"])
         AddSimulatedFields(sample, data)
         AddNueCategories(data["daughters"])
+        data["daughters"]["true_category"] = AddTrueCategories(data["mc"])
 
     FixRuns(data["daughters"])
 
@@ -272,14 +273,14 @@ def AddSimulatedFields(k, v):
     v["mc"]["weightSplineTimesTune_pi0scaled"] = v["mc"]["weightSplineTimesTune"] * (
         1 - 0.4 * v["mc"]["mc_E"][v["mc"]["mc_pdg"] == 111].max().clip(0, pi0_max_e)
     )
-    
+
     ## add truth fields:
     for true_f in columns.add_mc_fields:
         if true_f in v["mc"]:
             v["daughters"][true_f] = np.repeat(v["mc"][true_f], v["mc"][broadcaster])
         else:
             print("Truth field {} is not in sample {}".format(true_f, k))
-            
+
     # Add distance between reco_sce and true vertex
     true_vtx = [
         v["mc"][f][v["mc"][broadcaster] > 0]
@@ -290,11 +291,11 @@ def AddSimulatedFields(k, v):
         .xs(0, level="daughter")
         .values.T
     )
-    
+
     reco_vtx[0] -= x_sce_magic  # Correct x location
     v["daughters"]["true_vtx_distance"] = np.repeat(
         np.linalg.norm(true_vtx - reco_vtx, axis=0),
-        v["mc"][broadcaster][v["mc"][broadcaster]>0],
+        v["mc"][broadcaster][v["mc"][broadcaster] > 0],
     )
 
     # Add the modified purity/completeness to account for overlay.
@@ -341,6 +342,32 @@ def AddNueCategories(daughters):
     daughters["category"][cosmic] = 4
 
 
+# Needed for truth plots in charged current for both flavours.
+def AddTrueCategories(mc_data):
+    keys_true = {'true_fid_vol', 'nu_pdg', 'nelec', 'nproton', 'npi0', 'npion', 'ccnc', 'nmuon'}
+    mc_df = pd.DataFrame({k: mc_data[k] for k in keys_true})
+    
+    q_e0p = "true_fid_vol & abs(nu_pdg)==12 & nelec>0 & nproton==0 & (npi0+npion)==0 & ccnc==0"
+    q_eNp = "true_fid_vol & abs(nu_pdg)==12 & nelec>0 & nproton>0 & (npi0+npion)==0 & ccnc==0"
+    q_eX = "true_fid_vol & abs(nu_pdg)==12 & nelec>0 & (npi0+npion)>0 & ccnc==0"
+
+    q_m0p = "true_fid_vol & abs(nu_pdg)==14 & nmuon==1 & nproton==0 & (npi0+npion)==0 & ccnc==0"
+    q_mNp = "true_fid_vol & abs(nu_pdg)==14 & nmuon==1 & nproton>0 & (npi0+npion)==0 & ccnc==0"
+    q_mX = "true_fid_vol & abs(nu_pdg)==14 & nmuon==1 & (npi0+npion)>0 & ccnc==0"
+
+    new_cat = (
+        mc_df.eval(q_e0p) * 1
+        + mc_df.eval(q_eNp) * 2
+        + mc_df.eval(q_eX) * 3
+        + mc_df.eval(q_m0p) * 4
+        + mc_df.eval(q_mNp) * 5
+        + mc_df.eval(q_mX) * 6
+    )
+    del mc_df
+    mc_data["true_category"] = new_cat
+    return np.repeat(new_cat, mc_data[broadcaster]).values
+
+
 # Generate the pckl file used by the plotter
 def CreateAfterTraining(plot_samples, input_dir, one_file=False):
     available_samples = [
@@ -353,7 +380,7 @@ def CreateAfterTraining(plot_samples, input_dir, one_file=False):
         start_time = time.time()
         sample_file = min([f for f in available_samples if sample in f], key=len)
         data = pd.read_pickle(input_dir + sample_file)
-        print("---", sample, "number of events:", data['numentries'],"---")
+        print("---", sample, "number of events:", data["numentries"], "---")
         # data is passed by reference and not copied
         sel_str = SelectNues(sample, data)
 
@@ -372,7 +399,7 @@ def CreateAfterTraining(plot_samples, input_dir, one_file=False):
         )
         print(sel_str + "\n")
     if one_file:
-        print('Started writing pickled output file...')
+        print("Started writing pickled output file...")
         pickle_out = open(one_file, "wb")
         pickle.dump(all_samples, pickle_out, protocol=pickle.HIGHEST_PROTOCOL)
         pickle_out.close()

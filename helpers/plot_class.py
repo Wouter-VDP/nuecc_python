@@ -8,6 +8,8 @@ from helpers import helpfunction
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import gc
+from joblib import Parallel, delayed
+import time
 
 text_dict = {0: ("left", 0.02), 1: ("center", 0.5), 2: ("right", 0.98)}
 
@@ -30,6 +32,9 @@ class Plotter:
     # pot_dict: overwrites the pot in the pckled file
     # load_syst: string set with keys in the ['mc'] dict
     # show_lee: show lee_model by default on plots, bool
+    # pi0_scaling: apply a predefined pi0 scaling on the MC
+    # dirt: bool, do you wan to include dirt info?
+    # n_uni_max: per systematic variation, what is the max number of universes we want to use.
     def __init__(
         self,
         location,
@@ -42,14 +47,17 @@ class Plotter:
         load_syst=None,
         show_lee=False,
         pi0_scaling=False,
+        dirt=True,
+        n_uni_max=2000,
     ):
 
         self.signal = signal
         self.syst_weights = {}
         self.show_lee = show_lee
         self.ratio_purity_dict = {}
+        self.n_uni_max = n_uni_max
 
-        data = self.load_data(location, beam_on, master_query, load_syst)
+        data = self.load_data(location, beam_on, master_query, load_syst, dirt)
         self.keys = set(data["nu"]["daughters"].keys())
 
         weights_field = "weightSplineTimesTune"
@@ -85,7 +93,7 @@ class Plotter:
         # Default values loaded and can be overwritten with dict.
         print('data[beam_on]["pot"]', data[beam_on]["pot"])
         print('data[beam_on]["triggers"]', data[beam_on]["triggers"])
-        print('data[beam_off]["triggers"]', data['off']["triggers"])
+        print('data[beam_off]["triggers"]', data["off"]["triggers"])
         data[beam_on]["pot"] = sum(data[beam_on]["pot"].values())
         data[beam_on]["triggers"] = sum(data[beam_on]["triggers"].values())
         data["off"]["triggers"] = sum(data["off"]["triggers"].values())
@@ -141,18 +149,13 @@ class Plotter:
                 self.mc_daughters["plot_weight"]
                 .groupby(self.grouper, sort=False)
                 .first()
-                .astype(np.float16)
             )
             print()
             for type_w in load_syst:
-                self.syst_weights[type_w] = (
-                    np.multiply(
-                        np.vstack(
-                            [data["nu"]["mc"][type_w], data["dirt"]["mc"][type_w]]
-                        ),
-                        plot_weight[:, np.newaxis],
-                    )
-                ).astype(np.float16)
+                self.syst_weights[type_w] = np.multiply(
+                    np.vstack([data["nu"]["mc"][type_w], data["dirt"]["mc"][type_w]]),
+                    plot_weight[:, np.newaxis],
+                )
                 print("Loaded all universes for {}.".format(type_w))
 
         del data
@@ -170,7 +173,7 @@ class Plotter:
         print("Initialisation completed!")
 
     # Load the pickled dataframe from location
-    def load_data(self, location, beam_on, master_query, load_syst):
+    def load_data(self, location, beam_on, master_query, load_syst, dirt):
         data = pd.read_pickle(location)
         required_keys = {"nu", beam_on, "off", "dirt"}
         [data.pop(key) for key in set(data.keys()) - required_keys]
@@ -192,15 +195,15 @@ class Plotter:
                 print("Applying the master query on the systematic universes")
                 for type_w in load_syst:
                     print(type_w)
-                    data["nu"]["mc"][type_w] = data["nu"]["mc"][type_w][
-                        nu_eval_grouped
-                    ].astype(np.float16)
+                    data["nu"]["mc"][type_w] = data["nu"]["mc"][type_w][nu_eval_grouped]
                     data["dirt"]["mc"][type_w] = data["dirt"]["mc"][type_w][
                         dirt_eval_grouped
-                    ].astype(np.float16)
+                    ]
 
-        data["dirt"]["daughters"]["category"] = 7
-        data["dirt"]["daughters"]["cat_int"] = 7
+        # data["dirt"]["daughters"]["category"] = 5 # Dirt is out of FV
+        # data["dirt"]["daughters"]["cat_int"] = 7
+        if not dirt:
+            data["dirt"]["daughters"]["event_scale"] = 0
 
         return data
 
@@ -221,7 +224,6 @@ class Plotter:
                 )
             )
         weights_nom = np.hstack(weights_nom)
-        print("[get_purity] collected weights, calling helpfunction.effErr")
         purity, error_purity = helpfunction.effErr(weights_nom, weights_denom)
 
         return purity, error_purity
@@ -248,26 +250,15 @@ class Plotter:
             else:
                 mask = np.array(mask.astype(np.bool))
                 for type_sys, weights in self.syst_weights.items():
-                    print(weights)
-                    # new, vectorised
-                    #n_syst_i = np.sum(weights[mask], axis=0)
-                    #print('mc_weights', mc_weights)
-                    #print('n_syst_i', np.median(n_syst_i), n_syst_i.shape)
-                    #cov += sum((n_syst_i - mc_weights) ** 2)
-                    #print("cov", cov)
-                    #cov /= n_syst_i.shape[0]
                     n_uni += weights.shape[1]
                     n_syst_i = np.sum(weights[mask], axis=0)
                     cov += sum((n_syst_i - mc_weights) ** 2)
                 cov /= n_uni
             err_mc = cov + np.sum(np.square(mc_weight_arr))
-            print('err_mc', err_mc)
             err_ratio = ratio1 * np.sqrt(
                 err_data / (on_weights - off_weights) ** 2 + err_mc / mc_weights ** 2
             )
-            print(err_ratio)
             ratio[2] = err_ratio
-        print("[get_ratio_and_purity] calculated ratio, starting purity")
         purity = self.get_purity(query, self.cats)
         return (
             ratio,
@@ -569,9 +560,10 @@ class Plotter:
             )
         else:
             mask = mask.astype(np.bool)
-
             for type_sys, weights in self.syst_weights.items():
-                n_uni = weights.shape[1]
+                n_uni = min(weights.shape[1], self.n_uni_max)
+                # Method 1
+                start = time.time()
                 cov_this = np.zeros([N_bins, N_bins])
                 for i in range(n_uni):
                     n, _ = np.histogram(
@@ -580,7 +572,18 @@ class Plotter:
 
                     cov_this += np.outer(n - n_cv, n - n_cv)
                 cov += cov_this / n_uni
+                # Medthod 2 - Parallel loop, actually slower :(
+                # mid = time.time()
+                # cov_this_pool = sum(Parallel(n_jobs=4)(delayed(cov_universe)(weights[mask].T[i], cv_data, n_cv, bin_edges) for i in range(n_uni)))
+                # end = time.time()
+                # print('does parrallellisation work?', np.allclose(cov_this,cov_this_pool))
+                # print('Serial time:',mid-start,'Parallel time', end-mid)
         return cov
+
+
+def cov_universe(weights, cv_data, n_cv, bin_edges):
+    n, _ = np.histogram(cv_data, weights=weights, bins=bin_edges,)
+    return np.outer(n - n_cv, n - n_cv)
 
 
 def efficiency(
@@ -619,10 +622,10 @@ def efficiency(
     if conf_level is None:
         conf_level = 0.682689492137
 
-    num = np.asarray(num, dtype=np.float16)
-    num_w = np.asarray(num_w, dtype=np.float16)
-    den = np.asarray(den, dtype=np.float16)
-    den_w = np.asarray(den_w, dtype=np.float16)
+    num = np.asarray(num)
+    num_w = np.asarray(num_w)
+    den = np.asarray(den)
+    den_w = np.asarray(den_w)
 
     bins = np.linspace(x_min, x_max, n_bins)
 

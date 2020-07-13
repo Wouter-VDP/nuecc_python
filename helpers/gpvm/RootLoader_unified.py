@@ -18,17 +18,18 @@ dir_path = "/uboone/data/users/wvdp/searchingfornues/July2020/"
 # for every entry in this dict, one output pickle will be created.
 # the subdicts describes in which folder to look for input root files with the dict key names.
 out_samples = {
-    "nue": ["run1", "run3"],
+    #"nue": ["run1", "run3"],
     #"beam_on": ["run1", "run3"],
     #"beam_off": ["run1", "run2", "run3"],
-    "nu": ["run1", "run3"],
-    "dirt": ["run1", "run3"],
-    "filter": ["run1", "run3"],
+    #"nu": ["run1", "run3"],
+    #"dirt": ["run1", "run3"],
+    #"filter": ["run1", "run3"],
     #"set1": ["fake/run1", "fake/run3"],
     #"set2": ["fake/run1", "fake/run3"],
     #"set3": ["fake/run1", "fake/run3"],
     #"set4": ["fake/run1", "fake/run3"],
-    #"beam_sideband": ["sideband"],
+    #"set5": ["fake/run1"],
+    "beam_sideband": ["sideband"],
 }
 
 ### Fiducial volume
@@ -135,8 +136,8 @@ def load_truth_event(tree, period, sample_enum):
     # add the systematic weights for events with a slice:
     for col_mc in ["weightsFlux", "weightsGenie", "weightsReint"]:
         # Save the universes as float16 in a block numpy array for all events with a slice
-        jagged_mc = (tree.array(col_mc)/1000).astype(np.float16)[tree.array("nslice")].regular()
-        mc_arrays[col_mc] = np.clip(np.nan_to_num(jagged_mc,nan=1,posinf=1,neginf=1,),0,100)
+        jagged_mc = (tree.array(col_mc)/1000).astype(np.float16)[tree.array("nslice").astype(np.bool)].regular()
+        mc_arrays[col_mc] = np.clip(np.nan_to_num(jagged_mc,nan=1,posinf=1,neginf=1,),0,100).astype(np.float16)
 
     print("\t\t", np.unique(filter_cat, return_counts=True))
 
@@ -160,8 +161,8 @@ def calc_max_angle(tree):
 
 
 def run_to_period(run):
-    run2 = 8316
-    run3 = 13696
+    run2 = 8317
+    run3 = 13697
     return 1 + (run > run2) + (run > run3)
 
 
@@ -200,6 +201,7 @@ def load_this_sample(sample_name, root_files):
         else:
             period = 0
             print("Input file contains mixture of data-taking periods.")
+            print('run range:',min_run,max_run)
         print("\t", fn, sample_name, sample_type, sample_enum, period)
 
         this_fields = {f.decode() for f in uproot_file[main_tree].keys()}
@@ -212,20 +214,18 @@ def load_this_sample(sample_name, root_files):
                 data_scaling = pd.read_csv(
                     scaling_file_name, index_col=0, sep="\t", header=None
                 ).T.iloc[0]
-                print('data_scaling', data_scaling)
                 if sample_name in ["beam_on", "beam_sideband"]:
                     d["pot"][(sample_enum, period)] = data_scaling["tor875_wcut"]
                     d["triggers"][(sample_enum, period)] = data_scaling["E1DCNT_wcut"]
-                    print(d["pot"][(sample_enum, period)])
                 elif "off" in sample_name:
                     d["triggers"][(sample_enum, period)] = data_scaling["EXT"]
-                    print(d["triggers"][(sample_enum, period)])
             else:  # fake datasets
                 this_pot = uproot_file["SubRun"].array("pot").sum()
                 d["pot"][(sample_enum, period)] = this_pot
         else:  # part only for mc samples:
             this_pot = uproot_file["SubRun"].array("pot").sum()
             d["pot"][(sample_enum, period)] = this_pot
+            print("\t", this_pot)
             # Create the truth array
             truth.append(load_truth_event(uproot_file[main_tree], period, sample_enum))
             this_cols_load |= col_load.col_backtracked
