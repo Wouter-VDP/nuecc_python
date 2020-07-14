@@ -8,7 +8,6 @@ from helpers import helpfunction
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import gc
-from joblib import Parallel, delayed
 import time
 
 text_dict = {0: ("left", 0.02), 1: ("center", 0.5), 2: ("right", 0.98)}
@@ -195,10 +194,24 @@ class Plotter:
                 print("Applying the master query on the systematic universes")
                 for type_w in load_syst:
                     print(type_w)
-                    data["nu"]["mc"][type_w] = data["nu"]["mc"][type_w][nu_eval_grouped]
-                    data["dirt"]["mc"][type_w] = data["dirt"]["mc"][type_w][
-                        dirt_eval_grouped
-                    ]
+                    if self.n_uni_max > data["nu"]["mc"][type_w].shape[1]:
+                        data["nu"]["mc"][type_w] = data["nu"]["mc"][type_w][
+                            nu_eval_grouped
+                        ]
+                        data["dirt"]["mc"][type_w] = data["dirt"]["mc"][type_w][
+                            dirt_eval_grouped
+                        ]
+                    else:
+                        data["nu"]["mc"][type_w] = data["nu"]["mc"][type_w][
+                            nu_eval_grouped
+                        ][:, range(self.n_uni_max)]
+                        data["dirt"]["mc"][type_w] = data["dirt"]["mc"][type_w][
+                            dirt_eval_grouped
+                        ][:, range(self.n_uni_max)]
+                        assert self.n_uni_max == data["nu"]["mc"][type_w].shape[1]
+                    if type_w == 'weightsGenie':
+                        data["dirt"]["mc"][type_w] = np.where(data["dirt"]["mc"][type_w] ==0, data["dirt"]["mc"][type_w], 1)
+                        data["nu"]["mc"][type_w] = np.where(data["nu"]["mc"][type_w] ==0, data["nu"]["mc"][type_w], 1)
 
         # data["dirt"]["daughters"]["category"] = 5 # Dirt is out of FV
         # data["dirt"]["daughters"]["cat_int"] = 7
@@ -484,8 +497,16 @@ class Plotter:
             # overwrite the diagonal elements and add the MC/EXT stat and CNP contributions
             cov[np.diag_indices_from(cov)] = err_combined2 + err_stat_cnp
             diff = beam_on_bins - prediction
-            chisq = diff.dot(np.linalg.inv(cov)).dot(diff.T)
-            chisq_p = 1 - scipy.stats.chi2.cdf(chisq, N_bins)
+            #print('sqrt(err_combined2+np.diag(cov))', np.sqrt(err_combined2)/prediction)
+            if is_invertible(cov):
+                chisq = diff.dot(np.linalg.inv(cov)).dot(diff.T)
+                chisq_p = 1 - scipy.stats.chi2.cdf(chisq, N_bins)
+            else:
+                print("Covariance matrix was singular")
+                print(cov)
+                chisq = 0
+                chisq_p = 0
+
             cnp = (chisq, chisq_p, N_bins)
 
         err_combined = np.sqrt(err_combined2)
@@ -562,9 +583,9 @@ class Plotter:
         else:
             mask = mask.astype(np.bool)
             for type_sys, weights in self.syst_weights.items():
-                n_uni = min(weights.shape[1], self.n_uni_max)
+                n_uni = weights.shape[1]
                 # Method 1
-                #start = time.time()
+                # start = time.time()
                 cov_this = np.zeros([N_bins, N_bins])
                 for i in range(n_uni):
                     n, _ = np.histogram(
@@ -572,6 +593,7 @@ class Plotter:
                     )
 
                     cov_this += np.outer(n - n_cv, n - n_cv)
+                #print(type_sys,'sqrt(np.diag(cov))', np.sqrt(np.diag(cov_this / n_uni)))
                 cov += cov_this / n_uni
                 # Medthod 2 - Parallel loop, actually slower :(
                 # mid = time.time()
@@ -819,3 +841,7 @@ def get_best_text_loc(prediction, N_bins):
     middle = prediction[int(N_bins / 4) : int(N_bins / 4) + bin_count].sum()
     right = prediction[-(bin_count + 1) : -1].sum()
     return np.argmin([left, middle, right])
+
+
+def is_invertible(a):
+    return a.shape[0] == a.shape[1] and np.linalg.matrix_rank(a) == a.shape[0]
