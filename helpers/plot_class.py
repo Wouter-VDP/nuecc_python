@@ -293,17 +293,25 @@ class Plotter:
             else:
                 mask = np.array(mask.astype(np.bool))
                 for type_sys, weights in self.syst_weights.items():
-                    n_uni += weights.shape[1]
+                    cov_this = 0
                     n_syst_i = np.sum(weights[mask], axis=0)
-                    cov += sum((n_syst_i - mc_weights) ** 2)
-                cov /= n_uni
-
+                    cov_this = sum((n_syst_i - mc_weights) ** 2) / weights.shape[1]
+                    print(
+                        type_sys,
+                        "fractional error: {:.2%}".format( np.sqrt(cov_this) / mc_weights)
+                    )
+                    cov += cov_this
+                
                 for type_knob in helpfunction.syst_knobs:
                     up_weights = self.mc_daughters[type_knob + "up"][mask_daughters]
                     down_weights = self.mc_daughters[type_knob + "dn"][mask_daughters]
                     up = np.dot(up_weights, mc_weight_arr)
                     down = np.dot(down_weights, mc_weight_arr)
-                    cov +=  ((up-mc_weights)**2 + (down-mc_weights)**2) / 2
+                    cov += (np.abs(up - down)/2)**2
+                    print(
+                        type_knob,
+                        "fractional error: {:.2%}".format( np.abs(up - down)/2 / mc_weights)
+                    )
 
             err_mc = cov + np.sum(np.square(mc_weight_arr))
             err_ratio = ratio1 * np.sqrt(
@@ -622,21 +630,33 @@ class Plotter:
         else:
             mask = mask.astype(np.bool)
             for type_sys, weights in self.syst_weights.items():
+                start = time.time()
+                binning = np.digitize(cv_data, bin_edges) - 1
                 n_uni = weights.shape[1]
-                # Method 1
-                # start = time.time()
-                cov_this = np.zeros([N_bins, N_bins])
-                for i in range(n_uni):
-                    n, _ = np.histogram(
-                        cv_data, weights=weights[mask].T[i], bins=bin_edges,
+                n = np.empty((N_bins, n_uni))
+                for i in range(N_bins):
+                    n[i] = np.sum(
+                        np.multiply(
+                            weights[mask], np.array(binning == i)[:, np.newaxis]
+                        ),
+                        axis=0,
                     )
-
-                    cov_this += np.outer(n - n_cv, n - n_cv)
-                print(
-                    type_sys,
-                    "mean fractional error",
-                    np.mean(np.sqrt(np.diag(cov_this / n_uni)) / n_cv),
-                )
+                cov_this = np.zeros([N_bins, N_bins])
+                for k in range(n_uni):
+                    cov_this += np.outer(n.T[k] - n_cv, n.T[k] - n_cv)
+                end = time.time()
+                # Older method
+                # for i in range(n_uni):
+                #    n, _ = np.histogram(
+                #        cv_data, weights=weights[mask].T[i], bins=bin_edges,
+                #    )
+                #
+                #    cov_this += np.outer(n - n_cv, n - n_cv)
+                #print(
+                #    type_sys,
+                #    "mean fractional error: {:.2%}".format(np.mean(np.sqrt(np.diag(cov_this / n_uni)) / n_cv)),
+                #    "time passed: {:.1f}s.".format(end - start),
+                #)
                 cov += cov_this / n_uni
 
             for type_knob in helpfunction.syst_knobs:
@@ -652,12 +672,11 @@ class Plotter:
                     * self.mc_daughters["plot_weight"][mask_daughters],
                     bins=bin_edges,
                 )
-                knob_err = ( (up-n_cv)**2 + (down -  n_cv)**2 ) /2
-                print(
-                    type_knob,
-                    "mean fractional error",
-                    np.mean(np.sqrt(knob_err) / n_cv),
-                )
+                knob_err = ((up - n_cv) ** 2 + (down - n_cv) ** 2) / 2
+                #print(
+                #    type_knob,
+                #    "mean fractional error: {:.2%}".format(np.mean(np.sqrt(knob_err) / n_cv))
+                #)
                 cov[np.diag_indices_from(cov)] += knob_err
         return cov
 
