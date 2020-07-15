@@ -130,6 +130,30 @@ class Plotter:
             copy=False,
             sort=False,
         )
+
+        # Fix the knob weights, replace this to loader later.
+        for type_knob in helpfunction.syst_knobs:
+            up_weights = np.clip(
+                np.nan_to_num(
+                    self.mc_daughters[type_knob + "up"], nan=1, posinf=1, neginf=1
+                ),
+                0,
+                20,
+            )
+            self.mc_daughters[type_knob + "up"] = np.where(
+                up_weights != 0, up_weights, 1
+            )
+            down_weights = np.clip(
+                np.nan_to_num(
+                    self.mc_daughters[type_knob + "dn"], nan=1, posinf=1, neginf=1
+                ),
+                0,
+                20,
+            )
+            self.mc_daughters[type_knob + "dn"] = np.where(
+                down_weights != 0, down_weights, 1
+            )
+
         del data["nu"]["daughters"]
         gc.collect()
         print("Loaded all daughter dataframes.")
@@ -209,10 +233,15 @@ class Plotter:
                             dirt_eval_grouped
                         ][:, range(self.n_uni_max)]
                         assert self.n_uni_max == data["nu"]["mc"][type_w].shape[1]
-                    if type_w == 'weightsGenie':
-                        data["dirt"]["mc"][type_w] = np.where(data["dirt"]["mc"][type_w] ==0, data["dirt"]["mc"][type_w], 1)
-                        data["nu"]["mc"][type_w] = np.where(data["nu"]["mc"][type_w] ==0, data["nu"]["mc"][type_w], 1)
-
+                    if type_w == "weightsGenie":
+                        data["dirt"]["mc"][type_w] = np.where(
+                            data["dirt"]["mc"][type_w] != 0,
+                            data["dirt"]["mc"][type_w],
+                            1,
+                        )
+                        data["nu"]["mc"][type_w] = np.where(
+                            data["nu"]["mc"][type_w] != 0, data["nu"]["mc"][type_w], 1
+                        )
         # data["dirt"]["daughters"]["category"] = 5 # Dirt is out of FV
         # data["dirt"]["daughters"]["cat_int"] = 7
         if not dirt:
@@ -242,7 +271,8 @@ class Plotter:
         return purity, error_purity
 
     def get_ratio_and_purity(self, query="", return_syst_err=False):
-        mc_weight_arr = np.array(self.mc_daughters.query(query)["plot_weight"])
+        mask_daughters = self.mc_daughters.eval(query)
+        mc_weight_arr = np.array(self.mc_daughters["plot_weight"][mask_daughters])
         off_weight_arr = np.array(self.off_daughters.query(query)["plot_weight"])
         on_weight_arr = np.array(self.on_daughters.query(query)["plot_weight"])
         mc_weights = np.sum(mc_weight_arr)
@@ -257,7 +287,7 @@ class Plotter:
             err_data = np.sum(np.square(np.hstack([on_weight_arr, off_weight_arr])))
             cov = 0
             n_uni = 0
-            mask = self.mc_daughters.eval(query).groupby(self.grouper, sort=False).sum()
+            mask = mask_daughters.groupby(self.grouper, sort=False).sum()
             if max(mask) > 1:
                 print("Systematics only supported for one row per event")
             else:
@@ -267,6 +297,14 @@ class Plotter:
                     n_syst_i = np.sum(weights[mask], axis=0)
                     cov += sum((n_syst_i - mc_weights) ** 2)
                 cov /= n_uni
+
+                for type_knob in helpfunction.syst_knobs:
+                    up_weights = self.mc_daughters[type_knob + "up"][mask_daughters]
+                    down_weights = self.mc_daughters[type_knob + "dn"][mask_daughters]
+                    up = np.dot(up_weights, mc_weight_arr)
+                    down = np.dot(down_weights, mc_weight_arr)
+                    cov +=  ((up-mc_weights)**2 + (down-mc_weights)**2) / 2
+
             err_mc = cov + np.sum(np.square(mc_weight_arr))
             err_ratio = ratio1 * np.sqrt(
                 err_data / (on_weights - off_weights) ** 2 + err_mc / mc_weights ** 2
@@ -497,7 +535,7 @@ class Plotter:
             # overwrite the diagonal elements and add the MC/EXT stat and CNP contributions
             cov[np.diag_indices_from(cov)] = err_combined2 + err_stat_cnp
             diff = beam_on_bins - prediction
-            #print('sqrt(err_combined2+np.diag(cov))', np.sqrt(err_combined2)/prediction)
+            # print('sqrt(err_combined2+np.diag(cov))', np.sqrt(err_combined2)/prediction)
             if is_invertible(cov):
                 chisq = diff.dot(np.linalg.inv(cov)).dot(diff.T)
                 chisq_p = 1 - scipy.stats.chi2.cdf(chisq, N_bins)
@@ -569,7 +607,8 @@ class Plotter:
         return ratio, purity, ks_test_p, cnp, best_text_loc
 
     def get_cov(self, bin_edges, query, cv_data, cv_weights):
-        mask = self.mc_daughters.eval(query).groupby(self.grouper, sort=False).sum()
+        mask_daughters = self.mc_daughters.eval(query)
+        mask = mask_daughters.groupby(self.grouper, sort=False).sum()
         N_bins = len(bin_edges) - 1
         cov = np.zeros([N_bins, N_bins])
         n_cv, _ = np.histogram(cv_data, bins=bin_edges, weights=cv_weights)
@@ -593,20 +632,34 @@ class Plotter:
                     )
 
                     cov_this += np.outer(n - n_cv, n - n_cv)
-                #print(type_sys,'sqrt(np.diag(cov))', np.sqrt(np.diag(cov_this / n_uni)))
+                print(
+                    type_sys,
+                    "mean fractional error",
+                    np.mean(np.sqrt(np.diag(cov_this / n_uni)) / n_cv),
+                )
                 cov += cov_this / n_uni
-                # Medthod 2 - Parallel loop, actually slower :(
-                # mid = time.time()
-                # cov_this_pool = sum(Parallel(n_jobs=4)(delayed(cov_universe)(weights[mask].T[i], cv_data, n_cv, bin_edges) for i in range(n_uni)))
-                # end = time.time()
-                # print('does parrallellisation work?', np.allclose(cov_this,cov_this_pool))
-                # print('Serial time:',mid-start,'Parallel time', end-mid)
+
+            for type_knob in helpfunction.syst_knobs:
+                up, _ = np.histogram(
+                    cv_data,
+                    weights=self.mc_daughters[type_knob + "up"][mask_daughters]
+                    * self.mc_daughters["plot_weight"][mask_daughters],
+                    bins=bin_edges,
+                )
+                down, _ = np.histogram(
+                    cv_data,
+                    weights=self.mc_daughters[type_knob + "dn"][mask_daughters]
+                    * self.mc_daughters["plot_weight"][mask_daughters],
+                    bins=bin_edges,
+                )
+                knob_err = ( (up-n_cv)**2 + (down -  n_cv)**2 ) /2
+                print(
+                    type_knob,
+                    "mean fractional error",
+                    np.mean(np.sqrt(knob_err) / n_cv),
+                )
+                cov[np.diag_indices_from(cov)] += knob_err
         return cov
-
-
-def cov_universe(weights, cv_data, n_cv, bin_edges):
-    n, _ = np.histogram(cv_data, weights=weights, bins=bin_edges,)
-    return np.outer(n - n_cv, n - n_cv)
 
 
 def efficiency(

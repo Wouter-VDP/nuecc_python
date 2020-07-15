@@ -58,6 +58,18 @@ add_mc_fields = {
     "nu_purity_from_pfp",
     "optical_filter",
     "event_scale",
+    'knobVecFFCCQEup',
+    'knobCCMECdn',
+    'knobDecayAngMECup',
+    'knobThetaDelta2Npiup',
+    'knobThetaDelta2Npidn',
+    'knobDecayAngMECdn',
+    'knobCCMECup',
+    'knobVecFFCCQEdn',
+    'knobRPAup',
+    'knobAxFFCCQEdn',
+    'knobRPAdn',
+    'knobAxFFCCQEup'
 }
 
 # Columns used for BDT training, order matters! 

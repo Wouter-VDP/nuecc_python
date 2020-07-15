@@ -2,18 +2,21 @@ import numpy as np
 import pandas as pd
 import scipy.stats
 
-import matplotlib.pyplot as plt
-from xgboost import XGBClassifier
-from sklearn.metrics import roc_curve, auc
-from sklearn.model_selection import validation_curve
-
 ### Constants
 gr = 1.618
 mass_p = 0.93827
 min_p_energy = mass_p + 0.04
 min_e_energy = 0.020
-data_samples = {"on", "off", "sideband",'set1','set2','set3','set4','set5'}
-syst_weights = ["weightsFlux", "weightsGenie", 'weightsReint']
+data_samples = {"on", "off", "sideband", "set1", "set2", "set3", "set4", "set5"}
+syst_weights = ["weightsFlux", "weightsGenie", "weightsReint"]
+syst_knobs = {
+    "knobVecFFCCQE",
+    "knobDecayAngMEC",
+    "knobThetaDelta2Npi",
+    "knobCCMEC",
+    "knobRPA",
+    "knobAxFFCCQE",
+}
 
 ### Electron and preselection queries
 e_cand_str = "pfp_clusters_v==3 & \
@@ -132,6 +135,11 @@ def effErr(num_w, den_w, symm=True):
 def analyse_training(
     model_file, X_test, X_train, y_test, y_train, train_ana, labels, depth
 ):
+
+    import matplotlib.pyplot as plt
+    from xgboost import XGBClassifier
+    from sklearn.metrics import roc_curve, auc
+    from sklearn.model_selection import validation_curve
     fig, ax = plt.subplots(ncols=4, figsize=(8 * 1.618, 3.5), constrained_layout=True)
 
     y_pred = model_file.predict_proba(X_test).T[0]
@@ -146,7 +154,7 @@ def analyse_training(
         alpha=0.5,
         bins=50,
         range=(0, 1),
-        label=labels['signal'],
+        label=labels["signal"],
         density=False,
     )
     ax[0].hist(
@@ -154,14 +162,14 @@ def analyse_training(
         alpha=0.5,
         bins=50,
         range=(0, 1),
-        label=labels['background'],
+        label=labels["background"],
         density=False,
     )
     ax[0].legend(loc="upper left")
     ax[0].set_xlim(0, 1)
-    ax[0].set_xlabel(labels['xlabel'])
+    ax[0].set_xlabel(labels["xlabel"])
     ax[0].set_ylabel("Entries per bin")
-    ax[0].set_title(labels['title'])
+    ax[0].set_title(labels["title"])
 
     ax[1].plot(tpr, fpr, label="Test data (area = %0.3f)" % roc_auc)
     ax[1].plot(tpr_train, fpr_train, label="Train data (area = %0.3f)" % roc_auc_train)
@@ -186,7 +194,7 @@ def analyse_training(
     ax[2].set_title("XGBoost logistic loss")
 
     if train_ana:
-        print('Started training for different depths')
+        print("Started training for different depths")
         param_range = range(1, 8)
         train_scores, test_scores = validation_curve(
             XGBClassifier(),
@@ -198,8 +206,8 @@ def analyse_training(
             n_jobs=3,
             cv=2,
         )
-        print('Finished training for different depths')
-    
+        print("Finished training for different depths")
+
         train_scores_mean = np.mean(train_scores, axis=1)
         train_scores_std = np.std(train_scores, axis=1)
         test_scores_mean = np.mean(test_scores, axis=1)
@@ -226,4 +234,5 @@ def analyse_training(
         ax[3].legend()
         ax[3].set_xticks(param_range)
 
-    fig.savefig(labels['file_name'])
+    fig.savefig(labels["file_name"])
+
