@@ -44,6 +44,7 @@ pop_cols = {
 # Columns to add to daughters from mc:
 add_mc_fields = {
     "interaction",
+    "weightTune",
     "weightSplineTimesTune",
     "weightSplineTimesTune_pi0scaled",
     "leeweight",

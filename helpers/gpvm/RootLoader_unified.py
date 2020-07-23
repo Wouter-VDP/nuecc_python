@@ -18,17 +18,17 @@ dir_path = "/uboone/data/users/wvdp/searchingfornues/July2020/"
 # for every entry in this dict, one output pickle will be created.
 # the subdicts describes in which folder to look for input root files with the dict key names.
 out_samples = {
-    #"nue": ["run1", "run3"],
-    #"beam_on": ["run1", "run3"],
-    #"beam_off": ["run1", "run2", "run3"],
-    #"nu": ["run1", "run3"],
-    #"dirt": ["run1", "run3"],
-    #"filter": ["run1", "run3"],
-    #"set1": ["fake/run1", "fake/run3"],
-    #"set2": ["fake/run1", "fake/run3"],
-    #"set3": ["fake/run1", "fake/run3"],
-    #"set4": ["fake/run1", "fake/run3"],
-    #"set5": ["fake/run1"],
+    # "nue": ["run1", "run3"],
+    # "beam_on": ["run1", "run3"],
+    # "beam_off": ["run1", "run2", "run3"],
+    # "nu": ["run1", "run3"],
+    # "dirt": ["run1", "run3"],
+    # "filter": ["run1", "run3"],
+    # "set1": ["fake/run1", "fake/run3"],
+    # "set2": ["fake/run1", "fake/run3"],
+    # "set3": ["fake/run1", "fake/run3"],
+    # "set4": ["fake/run1", "fake/run3"],
+    # "set5": ["fake/run1"],
     "beam_sideband": ["sideband"],
 }
 
@@ -66,6 +66,15 @@ def load_truth_event(tree, period, sample_enum):
         0,
         20,
     )
+    for mc_col in col_load.table_cols:
+        if "knob" in mc_col:
+            print("adjusting the knob weights")
+            temp_weights = np.nan_to_num(
+                mc_arrays["mc_knob"], nan=1, posinf=1, neginf=1
+            ) / tree.array("weightTune")
+            mc_arrays["mc_knob"] = np.where(
+                (temp_weights != 0) & (temp_weights < 10), down_weights, 1
+            ).astype(np.float16)
 
     has_fiducial_vtx = is_fid(
         mc_arrays["true_nu_vtx_x"],
@@ -136,8 +145,21 @@ def load_truth_event(tree, period, sample_enum):
     # add the systematic weights for events with a slice:
     for col_mc in ["weightsFlux", "weightsGenie", "weightsReint"]:
         # Save the universes as float16 in a block numpy array for all events with a slice
-        jagged_mc = (tree.array(col_mc)/1000).astype(np.float16)[tree.array("nslice").astype(np.bool)].regular()
-        mc_arrays[col_mc] = np.clip(np.nan_to_num(jagged_mc,nan=1,posinf=1,neginf=1,),0,100).astype(np.float16)
+        jagged_mc = (
+            (tree.array(col_mc) / 1000 / tree.array("weightTune"))
+            .astype(np.float16)[tree.array("nslice").astype(np.bool)]
+            .regular()
+        )
+        mc_arrays[col_mc] = np.clip(
+            np.nan_to_num(jagged_mc, nan=1, posinf=1, neginf=1,), 0, 100
+        ).astype(np.float16)
+
+        if col_mc == "weightsGenie":
+            mc_arrays[col_mc] = np.where(
+                (mc_arrays[col_mc] != 0) & (mc_arrays[col_mc] < 10),
+                mc_arrays[col_mc],
+                1,
+            )
 
     print("\t\t", np.unique(filter_cat, return_counts=True))
 
@@ -201,7 +223,7 @@ def load_this_sample(sample_name, root_files):
         else:
             period = 0
             print("Input file contains mixture of data-taking periods.")
-            print('run range:',min_run,max_run)
+            print("run range:", min_run, max_run)
         print("\t", fn, sample_name, sample_type, sample_enum, period)
 
         this_fields = {f.decode() for f in uproot_file[main_tree].keys()}

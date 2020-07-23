@@ -13,7 +13,7 @@ syst_knobs = {
     "knobVecFFCCQE",
     "knobDecayAngMEC",
     "knobThetaDelta2Npi",
-    "knobCCMEC",
+    #"knobCCMEC", There is a bug with this knob
     "knobRPA",
     "knobAxFFCCQE",
 }

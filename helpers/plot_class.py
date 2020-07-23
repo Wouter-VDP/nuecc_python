@@ -131,29 +131,6 @@ class Plotter:
             sort=False,
         )
 
-        # Fix the knob weights, replace this to loader later.
-        for type_knob in helpfunction.syst_knobs:
-            up_weights = np.clip(
-                np.nan_to_num(
-                    self.mc_daughters[type_knob + "up"], nan=1, posinf=1, neginf=1
-                ),
-                0,
-                20,
-            )
-            self.mc_daughters[type_knob + "up"] = np.where(
-                up_weights != 0, up_weights, 1
-            )
-            down_weights = np.clip(
-                np.nan_to_num(
-                    self.mc_daughters[type_knob + "dn"], nan=1, posinf=1, neginf=1
-                ),
-                0,
-                20,
-            )
-            self.mc_daughters[type_knob + "dn"] = np.where(
-                down_weights != 0, down_weights, 1
-            )
-
         del data["nu"]["daughters"]
         gc.collect()
         print("Loaded all daughter dataframes.")
@@ -233,15 +210,6 @@ class Plotter:
                             dirt_eval_grouped
                         ][:, range(self.n_uni_max)]
                         assert self.n_uni_max == data["nu"]["mc"][type_w].shape[1]
-                    if type_w == "weightsGenie":
-                        data["dirt"]["mc"][type_w] = np.where(
-                            data["dirt"]["mc"][type_w] != 0,
-                            data["dirt"]["mc"][type_w],
-                            1,
-                        )
-                        data["nu"]["mc"][type_w] = np.where(
-                            data["nu"]["mc"][type_w] != 0, data["nu"]["mc"][type_w], 1
-                        )
         # data["dirt"]["daughters"]["category"] = 5 # Dirt is out of FV
         # data["dirt"]["daughters"]["cat_int"] = 7
         if not dirt:
@@ -298,19 +266,24 @@ class Plotter:
                     cov_this = sum((n_syst_i - mc_weights) ** 2) / weights.shape[1]
                     print(
                         type_sys,
-                        "fractional error: {:.2%}".format( np.sqrt(cov_this) / mc_weights)
+                        "fractional error: {:.2%}".format(
+                            np.sqrt(cov_this) / mc_weights
+                        ),
                     )
                     cov += cov_this
-                
+
                 for type_knob in helpfunction.syst_knobs:
                     up_weights = self.mc_daughters[type_knob + "up"][mask_daughters]
                     down_weights = self.mc_daughters[type_knob + "dn"][mask_daughters]
                     up = np.dot(up_weights, mc_weight_arr)
                     down = np.dot(down_weights, mc_weight_arr)
-                    cov += (np.abs(up - down)/2)**2
+                    print('down', sum(down_weights), 'up', sum(up_weights), 'cv', mc_weights)
+                    cov += ((up-mc_weights)**2 + (down-mc_weights)**2)/2
                     print(
                         type_knob,
-                        "fractional error: {:.2%}".format( np.abs(up - down)/2 / mc_weights)
+                        "fractional error: {:.2%}".format(
+                            np.sqrt(0.5*((up-mc_weights)**2 + (down-mc_weights)**2)) / mc_weights
+                        ),
                     )
 
             err_mc = cov + np.sum(np.square(mc_weight_arr))
@@ -591,8 +564,22 @@ class Plotter:
         ax[0].set_xlim(x_min, x_max)
 
         # Ratio plots
-        y_min_r = max(0, min((beam_on_bins - err_on) / prediction) * 0.9)
-        y_max_r = min(2, max((beam_on_bins + err_on) / prediction) * 1.1)
+        y_min_r = max(
+            0,
+            min(
+                min((beam_on_bins - err_on) / prediction),
+                1 - max(err_combined / prediction),
+            )
+            * 0.9,
+        )
+        y_max_r = min(
+            2,
+            max(
+                max((beam_on_bins + err_on) / prediction),
+                1 + max(err_combined / prediction),
+            )
+            * 1.1,
+        )
         ax[1].set_ylim(y_min_r, y_max_r)
         ax[1].set_xlim(x_min, x_max)
         if show_data:
@@ -631,7 +618,8 @@ class Plotter:
             mask = mask.astype(np.bool)
             for type_sys, weights in self.syst_weights.items():
                 start = time.time()
-                binning = np.digitize(cv_data, bin_edges) - 1
+                # Digitize skips one boundary, try to fix this
+                binning = np.digitize(cv_data, bin_edges, right=True) - 1
                 n_uni = weights.shape[1]
                 n = np.empty((N_bins, n_uni))
                 for i in range(N_bins):
@@ -652,11 +640,11 @@ class Plotter:
                 #    )
                 #
                 #    cov_this += np.outer(n - n_cv, n - n_cv)
-                #print(
+                # print(
                 #    type_sys,
                 #    "mean fractional error: {:.2%}".format(np.mean(np.sqrt(np.diag(cov_this / n_uni)) / n_cv)),
                 #    "time passed: {:.1f}s.".format(end - start),
-                #)
+                # )
                 cov += cov_this / n_uni
 
             for type_knob in helpfunction.syst_knobs:
@@ -672,11 +660,8 @@ class Plotter:
                     * self.mc_daughters["plot_weight"][mask_daughters],
                     bins=bin_edges,
                 )
-                knob_err = ((up - n_cv) ** 2 + (down - n_cv) ** 2) / 2
-                #print(
-                #    type_knob,
-                #    "mean fractional error: {:.2%}".format(np.mean(np.sqrt(knob_err) / n_cv))
-                #)
+                #knob_err = ((up - n_cv) ** 2 + (down - n_cv) ** 2) / 2
+                knob_err = ((up - down)/2) ** 2
                 cov[np.diag_indices_from(cov)] += knob_err
         return cov
 
@@ -787,7 +772,8 @@ def hist_bin_uncertainty(data, weights, x_min, x_max, bin_edges):
     in_range_weights = weights[mask_in_range]
 
     # Bin the weights with the same binning as the data
-    bin_index = np.digitize(in_range_data, bin_edges)
+    # Digitize skips one boundary, try to fix this
+    bin_index = np.digitize(in_range_data, bin_edges,right=True)
     # N.B.: range(1, bin_edges.size) is used instead of set(bin_index) as if
     # there is a gap in the data such that a bin is skipped no index would appear
     # for it in the set
