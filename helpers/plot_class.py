@@ -156,6 +156,19 @@ class Plotter:
                     np.vstack([data["nu"]["mc"][type_w], data["dirt"]["mc"][type_w]]),
                     plot_weight[:, np.newaxis],
                 )
+                # This is temporary, fixed in the loader
+                if type_w != "weightsGenie":
+                    tune_weights = (
+                        self.mc_daughters["weightTune"]
+                        .groupby(self.grouper, sort=False)
+                        .first()
+                    )
+                    tune_weights = np.clip(
+                        np.nan_to_num(tune_weights, nan=1, posinf=1, neginf=1,), 0, 100
+                    )
+                    self.syst_weights[type_w] = np.multiply(
+                        self.syst_weights[type_w], tune_weights[:, np.newaxis],
+                    )
                 print("Loaded all universes for {}.".format(type_w))
 
         del data
@@ -210,6 +223,7 @@ class Plotter:
                             dirt_eval_grouped
                         ][:, range(self.n_uni_max)]
                         assert self.n_uni_max == data["nu"]["mc"][type_w].shape[1]
+
         # data["dirt"]["daughters"]["category"] = 5 # Dirt is out of FV
         # data["dirt"]["daughters"]["cat_int"] = 7
         if not dirt:
@@ -263,6 +277,13 @@ class Plotter:
                 for type_sys, weights in self.syst_weights.items():
                     cov_this = 0
                     n_syst_i = np.sum(weights[mask], axis=0)
+                    #print(
+                    #    type_sys,
+                    #    "np.mean(n_syst_i)",
+                    #    np.mean(n_syst_i),
+                    #    "mc_weights",
+                    #    mc_weights,
+                    #)
                     cov_this = sum((n_syst_i - mc_weights) ** 2) / weights.shape[1]
                     print(
                         type_sys,
@@ -277,16 +298,20 @@ class Plotter:
                     down_weights = self.mc_daughters[type_knob + "dn"][mask_daughters]
                     up = np.dot(up_weights, mc_weight_arr)
                     down = np.dot(down_weights, mc_weight_arr)
-                    print('down', sum(down_weights), 'up', sum(up_weights), 'cv', mc_weights)
-                    cov += ((up-mc_weights)**2 + (down-mc_weights)**2)/2
+                    cov += ((up - mc_weights) ** 2 + (down - mc_weights) ** 2) / 2
                     print(
                         type_knob,
                         "fractional error: {:.2%}".format(
-                            np.sqrt(0.5*((up-mc_weights)**2 + (down-mc_weights)**2)) / mc_weights
+                            np.sqrt(
+                                0.5
+                                * ((up - mc_weights) ** 2 + (down - mc_weights) ** 2)
+                            )
+                            / mc_weights
                         ),
                     )
-
-            err_mc = cov + np.sum(np.square(mc_weight_arr))
+            mc_stat_err = np.sum(np.square(mc_weight_arr)) 
+            err_mc = cov + mc_stat_err
+            print('MC stat fractional error: {:.2%}'.format(np.sqrt(mc_stat_err)/mc_weights))
             err_ratio = ratio1 * np.sqrt(
                 err_data / (on_weights - off_weights) ** 2 + err_mc / mc_weights ** 2
             )
@@ -619,6 +644,7 @@ class Plotter:
             for type_sys, weights in self.syst_weights.items():
                 start = time.time()
                 # Digitize skips one boundary, try to fix this
+                bin_edges[0] = np.nextafter(bin_edges[0],bin_edges[0]-1)
                 binning = np.digitize(cv_data, bin_edges, right=True) - 1
                 n_uni = weights.shape[1]
                 n = np.empty((N_bins, n_uni))
@@ -660,8 +686,7 @@ class Plotter:
                     * self.mc_daughters["plot_weight"][mask_daughters],
                     bins=bin_edges,
                 )
-                #knob_err = ((up - n_cv) ** 2 + (down - n_cv) ** 2) / 2
-                knob_err = ((up - down)/2) ** 2
+                knob_err = ((up - n_cv) ** 2 + (down - n_cv) ** 2) / 2
                 cov[np.diag_indices_from(cov)] += knob_err
         return cov
 
@@ -773,7 +798,8 @@ def hist_bin_uncertainty(data, weights, x_min, x_max, bin_edges):
 
     # Bin the weights with the same binning as the data
     # Digitize skips one boundary, try to fix this
-    bin_index = np.digitize(in_range_data, bin_edges,right=True)
+    bin_edges[0] = np.nextafter(bin_edges[0],bin_edges[0]-1)
+    bin_index = np.digitize(in_range_data, bin_edges, right=True)
     # N.B.: range(1, bin_edges.size) is used instead of set(bin_index) as if
     # there is a gap in the data such that a bin is skipped no index would appear
     # for it in the set

@@ -70,8 +70,11 @@ def load_truth_event(tree, period, sample_enum):
         if "knob" in mc_col:
             print("adjusting the knob weights")
             temp_weights = np.nan_to_num(
-                mc_arrays["mc_knob"], nan=1, posinf=1, neginf=1
-            ) / tree.array("weightTune")
+                mc_arrays["mc_knob"] / tree.array("weightTune"),
+                nan=1,
+                posinf=1,
+                neginf=1,
+            )
             mc_arrays["mc_knob"] = np.where(
                 (temp_weights != 0) & (temp_weights < 10), down_weights, 1
             ).astype(np.float16)
@@ -145,11 +148,18 @@ def load_truth_event(tree, period, sample_enum):
     # add the systematic weights for events with a slice:
     for col_mc in ["weightsFlux", "weightsGenie", "weightsReint"]:
         # Save the universes as float16 in a block numpy array for all events with a slice
-        jagged_mc = (
-            (tree.array(col_mc) / 1000 / tree.array("weightTune"))
-            .astype(np.float16)[tree.array("nslice").astype(np.bool)]
-            .regular()
-        )
+        if col_mc == "weightsGenie": 
+            jagged_mc = (
+                (tree.array(col_mc) / 1000 / tree.array("weightTune"))
+                .astype(np.float16)[tree.array("nslice").astype(np.bool)]
+                .regular()
+            )
+        else: 
+            jagged_mc = (
+                (tree.array(col_mc) / 1000)
+                .astype(np.float16)[tree.array("nslice").astype(np.bool)]
+                .regular()
+            )
         mc_arrays[col_mc] = np.clip(
             np.nan_to_num(jagged_mc, nan=1, posinf=1, neginf=1,), 0, 100
         ).astype(np.float16)

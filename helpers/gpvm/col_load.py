@@ -118,7 +118,7 @@ table_cols = {
     "n_pfps",
     "slpdg",
     "interaction",
-    "weightTune"
+    "weightTune",
     "weightSpline",
     "weightSplineTimesTune",
     "leeweight",
