@@ -277,13 +277,13 @@ class Plotter:
                 for type_sys, weights in self.syst_weights.items():
                     cov_this = 0
                     n_syst_i = np.sum(weights[mask], axis=0)
-                    #print(
+                    # print(
                     #    type_sys,
                     #    "np.mean(n_syst_i)",
                     #    np.mean(n_syst_i),
                     #    "mc_weights",
                     #    mc_weights,
-                    #)
+                    # )
                     cov_this = sum((n_syst_i - mc_weights) ** 2) / weights.shape[1]
                     print(
                         type_sys,
@@ -309,9 +309,13 @@ class Plotter:
                             / mc_weights
                         ),
                     )
-            mc_stat_err = np.sum(np.square(mc_weight_arr)) 
+            mc_stat_err = np.sum(np.square(mc_weight_arr))
             err_mc = cov + mc_stat_err
-            print('MC stat fractional error: {:.2%}'.format(np.sqrt(mc_stat_err)/mc_weights))
+            print(
+                "MC stat fractional error: {:.2%}".format(
+                    np.sqrt(mc_stat_err) / mc_weights
+                )
+            )
             err_ratio = ratio1 * np.sqrt(
                 err_data / (on_weights - off_weights) ** 2 + err_mc / mc_weights ** 2
             )
@@ -644,7 +648,7 @@ class Plotter:
             for type_sys, weights in self.syst_weights.items():
                 start = time.time()
                 # Digitize skips one boundary, try to fix this
-                bin_edges[0] = np.nextafter(bin_edges[0],bin_edges[0]-1)
+                bin_edges[0] = np.nextafter(bin_edges[0], bin_edges[0] - 1)
                 binning = np.digitize(cv_data, bin_edges, right=True) - 1
                 n_uni = weights.shape[1]
                 n = np.empty((N_bins, n_uni))
@@ -798,7 +802,7 @@ def hist_bin_uncertainty(data, weights, x_min, x_max, bin_edges):
 
     # Bin the weights with the same binning as the data
     # Digitize skips one boundary, try to fix this
-    bin_edges[0] = np.nextafter(bin_edges[0],bin_edges[0]-1)
+    bin_edges[0] = np.nextafter(bin_edges[0], bin_edges[0] - 1)
     bin_index = np.digitize(in_range_data, bin_edges, right=True)
     # N.B.: range(1, bin_edges.size) is used instead of set(bin_index) as if
     # there is a gap in the data such that a bin is skipped no index would appear
