@@ -13,24 +13,41 @@ from enum_sample import Sample_dict
 ### Constants
 root_dir = "nuselection"
 main_tree = "NeutrinoSelectionFilter"
-dir_path = "/uboone/data/users/wvdp/searchingfornues/July2020/"
-
+syst_loading = False
 # for every entry in this dict, one output pickle will be created.
 # the subdicts describes in which folder to look for input root files with the dict key names.
-out_samples = {
-    # "nue": ["run1", "run3"],
-    # "beam_on": ["run1", "run3"],
-    # "beam_off": ["run1", "run2", "run3"],
-    # "nu": ["run1", "run3"],
-    # "dirt": ["run1", "run3"],
-    # "filter": ["run1", "run3"],
-    # "set1": ["fake/run1", "fake/run3"],
-    # "set2": ["fake/run1", "fake/run3"],
-    # "set3": ["fake/run1", "fake/run3"],
-    # "set4": ["fake/run1", "fake/run3"],
-    # "set5": ["fake/run1"],
-    "beam_sideband": ["sideband"],
-}
+
+if not syst_loading:
+    dir_path = "/uboone/data/users/wvdp/searchingfornues/July2020/"
+    out_samples = {
+        # "nue": ["run1", "run3"],
+        # "beam_on": ["run1", "run3"],
+        # "beam_off": ["run1", "run2", "run3"],
+        # "nu": ["run1", "run3"],
+        # "dirt": ["run1", "run3"],
+        # "filter": ["run1", "run3"],
+        # "set1": ["fake/run1", "fake/run3"],
+        # "set2": ["fake/run1", "fake/run3"],
+        # "set3": ["fake/run1", "fake/run3"],
+        # "set4": ["fake/run1", "fake/run3"],
+        # "set5": ["fake/run1"],
+        "beam_sideband": ["sideband"],
+    }
+else: 
+    dir_path = "/uboone/data/users/wvdp/searchingfornues/July2020/syst/"
+    out_samples = {
+        "nue_CV": ["run1", "run3"],
+        "nue_LYDown" : ["run1", "run3"],
+        "nue_Recomb2" : ["run1", "run3"],
+        "nue_LYAttenuation" : ["run1", "run3"],
+        "nue_LYRayleigh" : ["run1", "run3"],
+        "nue_SCE" : ["run1", "run3"],
+        "nue_WireModAngleXZ" : ["run1", "run3"],
+        "nue_WireModAngleYZ" : ["run1", "run3"],
+        "nue_WireModScaledEdX" : ["run1", "run3"],
+        "nue_WireModScaleX" : ["run1", "run3"],
+        "nue_WireModScaleYZ" : ["run1", "run3"],
+    }
 
 ### Fiducial volume
 lower = np.array([-1.55, -115.53, 0.1])
@@ -68,15 +85,37 @@ def load_truth_event(tree, period, sample_enum):
     )
     for mc_col in col_load.table_cols:
         if "knob" in mc_col:
-            print("adjusting the knob weights")
             temp_weights = np.nan_to_num(
-                mc_arrays["mc_knob"] / tree.array("weightTune"),
+                mc_arrays[mc_col] / tree.array("weightTune"),
                 nan=1,
                 posinf=1,
                 neginf=1,
             )
-            mc_arrays["mc_knob"] = np.where(
-                (temp_weights != 0) & (temp_weights < 10), down_weights, 1
+            mc_arrays[mc_col] = np.where(
+                (temp_weights != 0) & (temp_weights < 10), temp_weights, 1
+            ).astype(np.float16)
+            
+        if mc_col in ["weightsFlux", "weightsGenie", "weightsReint"]:
+        # Save the universes as float16 in a block numpy array for all events with a slice
+            if mc_col == "weightsGenie": 
+                jagged_mc = (
+                    (tree.array(mc_col) / 1000 / tree.array("weightTune"))
+                    .astype(np.float16)[tree.array("nslice").astype(np.bool)]
+                    .regular()
+                )
+                jagged_mc = np.where(
+                    (jagged_mc != 0) & (jagged_mc < 10),
+                    jagged_mc,
+                    1,
+                )
+            else: 
+                jagged_mc = (
+                    (tree.array(mc_col) / 1000)
+                    .astype(np.float16)[tree.array("nslice").astype(np.bool)]
+                    .regular()
+                )
+            mc_arrays[mc_col] = np.clip(
+                np.nan_to_num(jagged_mc, nan=1, posinf=1, neginf=1,), 0, 100
             ).astype(np.float16)
 
     has_fiducial_vtx = is_fid(
@@ -145,32 +184,7 @@ def load_truth_event(tree, period, sample_enum):
     )
     mc_arrays["pdg12_broadcast"] = (tree.array("slpdg") == 12) * tree.array("n_pfps")
     mc_arrays["pdg14_broadcast"] = (tree.array("slpdg") == 14) * tree.array("n_pfps")
-    # add the systematic weights for events with a slice:
-    for col_mc in ["weightsFlux", "weightsGenie", "weightsReint"]:
-        # Save the universes as float16 in a block numpy array for all events with a slice
-        if col_mc == "weightsGenie": 
-            jagged_mc = (
-                (tree.array(col_mc) / 1000 / tree.array("weightTune"))
-                .astype(np.float16)[tree.array("nslice").astype(np.bool)]
-                .regular()
-            )
-        else: 
-            jagged_mc = (
-                (tree.array(col_mc) / 1000)
-                .astype(np.float16)[tree.array("nslice").astype(np.bool)]
-                .regular()
-            )
-        mc_arrays[col_mc] = np.clip(
-            np.nan_to_num(jagged_mc, nan=1, posinf=1, neginf=1,), 0, 100
-        ).astype(np.float16)
-
-        if col_mc == "weightsGenie":
-            mc_arrays[col_mc] = np.where(
-                (mc_arrays[col_mc] != 0) & (mc_arrays[col_mc] < 10),
-                mc_arrays[col_mc],
-                1,
-            )
-
+   
     print("\t\t", np.unique(filter_cat, return_counts=True))
 
     for key in col_load.filter_cols:
