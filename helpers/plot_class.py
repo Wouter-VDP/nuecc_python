@@ -34,6 +34,7 @@ class Plotter:
     # pi0_scaling: apply a predefined pi0 scaling on the MC
     # dirt: bool, do you wan to include dirt info?
     # n_uni_max: per systematic variation, what is the max number of universes we want to use.
+    # write_slimmed_output: write some fields of selected events to a txt file
     def __init__(
         self,
         location,
@@ -48,6 +49,7 @@ class Plotter:
         pi0_scaling=False,
         dirt=True,
         n_uni_max=2000,
+        write_slimmed_output=False,
     ):
 
         self.signal = signal
@@ -184,6 +186,43 @@ class Plotter:
             print("Error, unknown signal string, choose nue or numu!")
 
         print("Initialisation completed!")
+        if write_slimmed_output:
+            self.slimmed_writer()
+
+    # provide output for stat analysis afterwards
+    def slimmed_writer(self):
+        write_cols_reco = [
+            "shr_energy_y_v",
+            "shr_theta_v",
+            "plot_weight",
+        ]
+        write_cols_true = [
+            "nu_e",
+            "nu_pdg",
+            "true_fid_vol",
+            "nelec",
+            "nueccinc",
+            "leeweight",
+        ]
+        self.mc_daughters.query("e_candidate & select").to_csv(
+            "slimmed_nuecc_sel_mc.csv",
+            header=True,
+            index=False,
+            columns=write_cols_reco + write_cols_true,
+        )
+        self.on_daughters.query("e_candidate & select").to_csv(
+            "slimmed_nuecc_sel_beamon.csv",
+            header=True,
+            index=False,
+            columns=write_cols_reco,
+        )
+        self.off_daughters.query("e_candidate & select").to_csv(
+            "slimmed_nuecc_sel_beamoff.csv",
+            header=True,
+            index=False,
+            columns=write_cols_reco,
+        )
+        print('writing of slimmed output files finished')
 
     # Load the pickled dataframe from location
     def load_data(self, location, beam_on, master_query, load_syst, dirt):
