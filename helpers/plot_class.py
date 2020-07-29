@@ -198,6 +198,7 @@ class Plotter:
         ]
         write_cols_true = [
             "nu_e",
+            "backtracked_e",
             "nu_pdg",
             "true_fid_vol",
             "nelec",
