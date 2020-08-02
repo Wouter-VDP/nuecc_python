@@ -598,6 +598,11 @@ class Plotter:
             cnp = (chisq, chisq_p, N_bins)
 
         err_combined = np.sqrt(err_combined2)
+        print('err_combined', err_combined)
+        print('prediction', prediction)
+        print('beam_on_bins',beam_on_bins)
+        print('err_stat_cnp',err_stat_cnp)
+        
         for m, v, e, w in zip(edges_mid, prediction, err_combined, widths):
             ax[0].add_patch(
                 patches.Rectangle(
