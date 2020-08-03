@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import uproot
+import pickle
 import scipy.stats
 from helpers import plot_dicts_nue
 from helpers import plot_dicts_numu
@@ -9,6 +10,7 @@ import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import gc
 import time
+import os
 
 text_dict = {0: ("left", 0.02), 1: ("center", 0.5), 2: ("right", 0.98)}
 
@@ -30,6 +32,7 @@ class Plotter:
     # beam_on: on or sideband
     # pot_dict: overwrites the pot in the pckled file
     # load_syst: string set with keys in the ['mc'] dict
+    # load_detvar: path to the dict
     # show_lee: show lee_model by default on plots, bool
     # pi0_scaling: apply a predefined pi0 scaling on the MC
     # dirt: bool, do you wan to include dirt info?
@@ -45,6 +48,7 @@ class Plotter:
         beam_on="on",
         pot_dict={},
         load_syst=None,
+        load_detvar=None,
         show_lee=False,
         pi0_scaling=False,
         dirt=True,
@@ -54,11 +58,13 @@ class Plotter:
 
         self.signal = signal
         self.syst_weights = {}
+        self.detvar_dict = None
         self.show_lee = show_lee
         self.ratio_purity_dict = {}
         self.n_uni_max = n_uni_max
+        self.master_query = master_query
 
-        data = self.load_data(location, beam_on, master_query, load_syst, dirt)
+        data = self.load_data(location, beam_on, load_syst, dirt)
         self.keys = set(data["nu"]["daughters"].keys())
 
         weights_field = "weightSplineTimesTune"
@@ -138,10 +144,10 @@ class Plotter:
         print("Loaded all daughter dataframes.")
 
         # The samples were produced assuming 1e21 as event_scale
+        self.pot21scale = norm_scale * (data[beam_on]["pot"] / 1e21)
         self.mc_daughters["plot_weight"] = (
             self.mc_daughters["event_scale"]
-            * norm_scale
-            * (data[beam_on]["pot"] / 1e21)
+            * self.pot21scale
             * self.mc_daughters[weights_field]
         )
 
@@ -175,6 +181,18 @@ class Plotter:
 
         del data
         gc.collect()
+
+        if load_detvar != None:
+            if os.path.exists(load_detvar):
+                file = open(load_detvar, "rb")
+                self.detvar_dict = pickle.load(file)
+                file.close()
+                print("Dictionary with detector variations loaded into memory.")
+            else:
+                self.detvar_dict = {}
+            print(
+                "Do not forget to use self.UpdateDetvarDict(path) after all plotting to update the keys!"
+            )
 
         if signal == "nue":
             self.dicts = plot_dicts_nue
@@ -223,10 +241,10 @@ class Plotter:
             index=False,
             columns=write_cols_reco,
         )
-        print('writing of slimmed output files finished')
+        print("writing of slimmed output files finished")
 
     # Load the pickled dataframe from location
-    def load_data(self, location, beam_on, master_query, load_syst, dirt):
+    def load_data(self, location, beam_on, load_syst, dirt):
         data = pd.read_pickle(location)
         required_keys = {"nu", beam_on, "off", "dirt"}
         [data.pop(key) for key in set(data.keys()) - required_keys]
@@ -234,11 +252,11 @@ class Plotter:
         if not all([k in data.keys() for k in required_keys]):
             print("Error, missing samples in the data set!")
 
-        if master_query:
-            data[beam_on]["daughters"].query(master_query, inplace=True)
-            data["off"]["daughters"].query(master_query, inplace=True)
-            dirt_eval = data["dirt"]["daughters"].eval(master_query)
-            nu_eval = data["nu"]["daughters"].eval(master_query)
+        if self.master_query:
+            data[beam_on]["daughters"].query(self.master_query, inplace=True)
+            data["off"]["daughters"].query(self.master_query, inplace=True)
+            dirt_eval = data["dirt"]["daughters"].eval(self.master_query)
+            nu_eval = data["nu"]["daughters"].eval(self.master_query)
             data["dirt"]["daughters"] = data["dirt"]["daughters"][dirt_eval]
             data["nu"]["daughters"] = data["nu"]["daughters"][nu_eval]
 
@@ -270,6 +288,12 @@ class Plotter:
             data["dirt"]["daughters"]["event_scale"] = 0
 
         return data
+
+    # write the detector variation dictionary to a file:
+    def UpdateDetvarDict(self, path):
+        file = open(path, "wb")
+        pickle.dump(self.detvar_dict, file)
+        file.close()
 
     # Get the purity of a selection
     def get_purity(self, selector, cats):
@@ -573,6 +597,15 @@ class Plotter:
                 )
                 prediction += bin_i
 
+        if self.detvar_dict!=None:
+            detvar_key = (field, query+" & "+self.master_query, x_min, x_max, N_bins)
+            if detvar_key in self.detvar_dict:
+                if len(self.detvar_dict[detvar_key]) == N_bins:
+                    print("Detvar found")
+                    err_combined2 += (self.detvar_dict[detvar_key] * self.pot21scale)**2
+            else:
+                self.detvar_dict[detvar_key] = []
+                print("Detvar not found, key added!")
         if show_syst:
             cov = self.get_cov(edges, query, mc_data, mc_weights)
             err_combined2 += np.diag(cov)  # used for the error on prediction
@@ -598,10 +631,6 @@ class Plotter:
             cnp = (chisq, chisq_p, N_bins)
 
         err_combined = np.sqrt(err_combined2)
-        print('err_combined', err_combined)
-        print('prediction', prediction)
-        print('beam_on_bins',beam_on_bins)
-        print('err_stat_cnp',err_stat_cnp)
         
         for m, v, e, w in zip(edges_mid, prediction, err_combined, widths):
             ax[0].add_patch(

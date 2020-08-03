@@ -105,6 +105,13 @@ def get_syt_var(field, query, x_min, x_max, N_bins, data_dict, pot_target):
     result, cv_data, cv_filter, cv_weights = get_syst_data(
         data_dict, query, field, "CV", pot_target
     )
+    cv_full_bins, _ = np.histogram(
+        cv_data,
+        weights=cv_weights,
+        range=(x_min, x_max),
+        bins=N_bins,
+    )/sum(cv_weights)
+    
     if result:
         cv_values = get_syst_bins(
             x_min, x_max, new_n_bins, cv_weights, cv_data, cv_filter
@@ -146,10 +153,15 @@ def get_syt_var(field, query, x_min, x_max, N_bins, data_dict, pot_target):
         # group and broadcast the filter samples together:
         if sample == "nu":
             dict_syst_merged["total"] += (
-                np.repeat(dict_syst_merged[sample] / N_bins, N_bins) ** 2
+                (dict_syst_merged[sample] * cv_full_bins) ** 2
             )
         elif new_n_bins != N_bins:
-            dict_syst_merged["total"] += np.repeat(dict_syst_merged[sample] / 2, 2) ** 2
+            ori_bin_syst = np.zeros(N_bins)
+            for i in range(new_n_bins):
+                two_bin_norm = (cv_full_bins[2*i]+ cv_full_bins[2*i+1])
+                ori_bin_syst[2*i] = dict_syst_merged[sample][i] * cv_full_bins[2*i] / two_bin_norm
+                ori_bin_syst[2*i+1] = dict_syst_merged[sample][i] * cv_full_bins[2*i+1] / two_bin_norm
+            dict_syst_merged["total"] += ori_bin_syst** 2
         else:
             dict_syst_merged["total"] += dict_syst_merged[sample] ** 2
 
