@@ -328,53 +328,71 @@ class Plotter:
         ratio1_err = np.sqrt(mc_weights + off_weights) / mc_weights
         ratio2 = on_weights / (mc_weights + off_weights)
         ratio = [ratio1, ratio2, ratio1_err]
-
-        if len(self.syst_weights) > 0 & return_syst_err:
+        
+        if return_syst_err:
             err_data = np.sum(np.square(np.hstack([on_weight_arr, off_weight_arr])))
             cov = 0
-            n_uni = 0
-            mask = mask_daughters.groupby(self.grouper, sort=False).sum()
-            if max(mask) > 1:
-                print("Systematics only supported for one row per event")
-            else:
-                mask = np.array(mask.astype(np.bool))
-                for type_sys, weights in self.syst_weights.items():
-                    cov_this = 0
-                    n_syst_i = np.sum(weights[mask], axis=0)
-                    # print(
-                    #    type_sys,
-                    #    "np.mean(n_syst_i)",
-                    #    np.mean(n_syst_i),
-                    #    "mc_weights",
-                    #    mc_weights,
-                    # )
-                    cov_this = sum((n_syst_i - mc_weights) ** 2) / weights.shape[1]
-                    print(
-                        type_sys,
-                        "fractional error: {:.2%}".format(
-                            np.sqrt(cov_this) / mc_weights
-                        ),
-                    )
-                    cov += cov_this
+            
+            if len(self.syst_weights) > 0:
+                n_uni = 0
+                mask = mask_daughters.groupby(self.grouper, sort=False).sum()
+                if max(mask) > 1:
+                    print("Systematics only supported for one row per event")
+                else:
+                    mask = np.array(mask.astype(np.bool))
+                    for type_sys, weights in self.syst_weights.items():
+                        cov_this = 0
+                        n_syst_i = np.sum(weights[mask], axis=0)
+                        cov_this = sum((n_syst_i - mc_weights) ** 2) / weights.shape[1]
+                        print(
+                            type_sys,
+                            "fractional error: {:.2%}".format(
+                                np.sqrt(cov_this) / mc_weights
+                            ),
+                        )
+                        cov += cov_this
 
-                for type_knob in helpfunction.syst_knobs:
-                    up_weights = self.mc_daughters[type_knob + "up"][mask_daughters]
-                    down_weights = self.mc_daughters[type_knob + "dn"][mask_daughters]
-                    up = np.dot(up_weights, mc_weight_arr)
-                    down = np.dot(down_weights, mc_weight_arr)
-                    cov += ((up - mc_weights) ** 2 + (down - mc_weights) ** 2) / 2
-                    print(
-                        type_knob,
-                        "fractional error: {:.2%}".format(
-                            np.sqrt(
-                                0.5
-                                * ((up - mc_weights) ** 2 + (down - mc_weights) ** 2)
-                            )
-                            / mc_weights
-                        ),
-                    )
+                    for type_knob in helpfunction.syst_knobs:
+                        up_weights = self.mc_daughters[type_knob + "up"][mask_daughters]
+                        down_weights = self.mc_daughters[type_knob + "dn"][mask_daughters]
+                        up = np.dot(up_weights, mc_weight_arr)
+                        down = np.dot(down_weights, mc_weight_arr)
+                        cov += ((up - mc_weights) ** 2 + (down - mc_weights) ** 2) / 2
+                        print(
+                            type_knob,
+                            "fractional error: {:.2%}".format(
+                                np.sqrt(
+                                    0.5
+                                    * ((up - mc_weights) ** 2 + (down - mc_weights) ** 2)
+                                )
+                                / mc_weights
+                            ),
+                        )
+            detvar_error = 0
+            if (self.detvar_dict != None):
+                detvar_key = (
+                    "n_pfps",
+                    query + " & " + self.master_query,
+                    -100,
+                    1000,
+                    1,
+                )
+                if detvar_key in self.detvar_dict:
+                    if len(self.detvar_dict[detvar_key]) == 1:
+                        print("Detvar found")
+                        detvar_error = self.detvar_dict[detvar_key][0] * self.pot21scale
+
+                else:
+                    self.detvar_dict[detvar_key] = []
+                    print("Detvar not found, key added!")
+
             mc_stat_err = np.sum(np.square(mc_weight_arr))
-            err_mc = cov + mc_stat_err
+            err_mc = cov + mc_stat_err + detvar_error ** 2
+            print(
+                "Combined detector variation fractional error: {:.2%}".format(
+                    detvar_error / mc_weights
+                )
+            )
             print(
                 "MC stat fractional error: {:.2%}".format(
                     np.sqrt(mc_stat_err) / mc_weights
@@ -597,12 +615,20 @@ class Plotter:
                 )
                 prediction += bin_i
 
-        if self.detvar_dict!=None:
-            detvar_key = (field, query+" & "+self.master_query, x_min, x_max, N_bins)
+        if self.detvar_dict != None:
+            detvar_key = (
+                field,
+                query + " & " + self.master_query,
+                x_min,
+                x_max,
+                N_bins,
+            )
             if detvar_key in self.detvar_dict:
                 if len(self.detvar_dict[detvar_key]) == N_bins:
                     print("Detvar found")
-                    err_combined2 += (self.detvar_dict[detvar_key] * self.pot21scale)**2
+                    err_combined2 += (
+                        self.detvar_dict[detvar_key] * self.pot21scale
+                    ) ** 2
             else:
                 self.detvar_dict[detvar_key] = []
                 print("Detvar not found, key added!")
@@ -631,7 +657,7 @@ class Plotter:
             cnp = (chisq, chisq_p, N_bins)
 
         err_combined = np.sqrt(err_combined2)
-        
+
         for m, v, e, w in zip(edges_mid, prediction, err_combined, widths):
             ax[0].add_patch(
                 patches.Rectangle(

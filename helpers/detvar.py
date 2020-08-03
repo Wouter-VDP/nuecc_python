@@ -17,7 +17,7 @@ def get_syst_data(data_dict, query, field, label, pot_target):
         views = [nu_view, nue_view, cc_view, nc_view]
         data_array = np.hstack([v.eval(field) for v in views])
         filter_array = np.hstack([v["filter"] for v in views])
-        weights_array = np.hstack([v["weightSplineTimesTune"] for v in views])
+        weights_array = np.hstack([v["weightSplineTimesTune_pi0scaled"] for v in views])
 
         # pot bookkeeping
         pot_nu = sum(data_dict[nu_sample]["pot"].values())
@@ -96,7 +96,7 @@ def get_syst_bins(x_min, x_max, new_bins, weights, data, tagger):
 
 def get_syt_var(field, query, x_min, x_max, N_bins, data_dict, pot_target):
     filter_samples = ["nue", "cc", "nc", "nu"]
-    max_bin_syst = 6
+    max_bin_syst = 7
     dict_syst_split = {}
     dict_syst_merged = {}
     new_n_bins = get_new_n_bins(N_bins, max_bin_syst)
@@ -125,7 +125,7 @@ def get_syt_var(field, query, x_min, x_max, N_bins, data_dict, pot_target):
             data_dict, query, field, lab, pot_target
         )
         if not result:
-            print(lab)
+            #print(lab)
             continue
         dict_syst_split[lab] = {}
         var_values = get_syst_bins(
@@ -159,8 +159,12 @@ def get_syt_var(field, query, x_min, x_max, N_bins, data_dict, pot_target):
             ori_bin_syst = np.zeros(N_bins)
             for i in range(new_n_bins):
                 two_bin_norm = (cv_full_bins[2*i]+ cv_full_bins[2*i+1])
-                ori_bin_syst[2*i] = dict_syst_merged[sample][i] * cv_full_bins[2*i] / two_bin_norm
-                ori_bin_syst[2*i+1] = dict_syst_merged[sample][i] * cv_full_bins[2*i+1] / two_bin_norm
+                if two_bin_norm==0:
+                    ori_bin_syst[2*i] = 0
+                    ori_bin_syst[2*i+1] = 0
+                else:
+                    ori_bin_syst[2*i] = dict_syst_merged[sample][i] * cv_full_bins[2*i] / two_bin_norm
+                    ori_bin_syst[2*i+1] = dict_syst_merged[sample][i] * cv_full_bins[2*i+1] / two_bin_norm
             dict_syst_merged["total"] += ori_bin_syst** 2
         else:
             dict_syst_merged["total"] += dict_syst_merged[sample] ** 2
