@@ -9,19 +9,18 @@ The input for these scripts are the *NTuples* produced by the [searchingfornues 
 
 ### Finding or producing the input *NTuples*
 
-The input *NTuples* for this analysis are coming from fermilab computing grid jobs of the *searchingfornues* LArSoft analyser. At the time of writing, these are produced by the PeLEE team and documented in [this spreadsheet](https://docs.google.com/spreadsheets/d/1vdcm3FoYIF1XiS6qx4qTCbaTH79vu-Sb5j8dnqctaTM/edit#gid=1726284664). The location of these *RAW* input ROOT *NTuples* is currently:
-> /uboone/data/users/davidc/searchingfornues/
+The input *NTuples* for this analysis are coming from fermilab computing grid jobs of the *searchingfornues* LArSoft analyser. At the time of writing, these are produced by the PeLEE team and documented in [this spreadsheet](https://docs.google.com/spreadsheets/d/1vdcm3FoYIF1XiS6qx4qTCbaTH79vu-Sb5j8dnqctaTM/edit#gid=1726284664). The location of these *RAW* input ROOT *NTuples* is currently `/uboone/data/users/davidc/searchingfornues/`.
 
 For additional information on how to produce these *NTuples* starting from the *Samweb* *reco2* ARTROOT files, see the [searchingfornues wiki](https://github.com/ubneutrinos/searchingfornues/wiki).
 
-For an organised workflow, we will create symbolic links of these input *NTuples* in our *uboone/data/users* folder. 
+For an organised workflow, we will create symbolic links of these input *NTuples* in our `uboone/data/users` folder. 
 These symbolic links can be create with wildcard bash comments such as:
 ```bash
 for FILE in /uboone/data/users/davidc/searchingfornues/v08_00_00_25/cc0pinp/1205/*G*.root; 
 do ln -s "$FILE"; 
 done
 ```
-The following scripts assume a structure in your data folder similar to */uboone/data/users/wvdp/searchingfornues/July2020*, 
+The following scripts assume a structure in your data folder similar to `/uboone/data/users/wvdp/searchingfornues/July2020`, 
 including the folllowing folders:
 > combined  fake  run1  run2  run3  sideband  syst.
 
@@ -59,6 +58,8 @@ The *syst* folder contains samples that are used to evaluate the detector variat
 | nue_WireModScaleYZ.root   | nu_WireModScaleYZ.root   | ccpi0_WireModScaleYZ.root   | ncpi0_WireModScaleYZ.root   |
 
 These sameples are only necessary to include detector variations in the error bars on the data-to-simulation comparison plots ([see later](#datamc)).
+
+The sideband folder and the fake folder are containing ROOT *NTuples* that can be swapped in the plotting framweork with the `beam_on.root` sample. For example, in the folder sideband, there can be a single ROOT file named `beam_sideband.root` containing the sideband information of different runs. It is also possible to split the ROOT files by runs in subfolders as before, which is done for the fake data studies (see `/uboone/data/users/wvdp/searchingfornues/July2020/fake/`).
 
 ### Processing the *NTuples* to python style objects.
 
