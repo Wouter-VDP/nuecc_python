@@ -67,7 +67,13 @@ The files handling the preprocessing are part of this repository in the [helpers
 
 1. Protons-on-target (POT) counting: 
    * [RunSubrun.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/gpvm/RunSubrun.py)
+     * Configurable parameters: `dir_path`
+     * Function: build a `txt` file with the run subrun information for data (beam_on, beam_off, beam_sideband). 
    * [ZarkoCaller.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/gpvm/ZarkoCaller.py)
+     * Warning: This is the only script which relies on python 2.x and samweb tools being setup, these dependencies are enforced by `/uboone/app/users/zarko/getDataInfo.py`.
+     * Configurable parameters: `dir_path`
+     * Function: creates a `scaling.txt` file with the POT/triggers information for data samples. 
+     
 2. Restructuring and slimming the data
    * [RootLoader.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/gpvm/Rootloader.py)
    * [Merger.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/gpvm/Merger.py)
