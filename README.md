@@ -94,12 +94,12 @@ After succesfully running these four scripts, you should at least have the follo
 ```
 beam_on_slimmed.pckl 
 beam_off_slimmed.pckl  
-beam_sideband_slimmed.pckl  
 nu_new_slimmed.pckl    
 dirt_slimmed.pckl    
 ```
-And, optionally if you process fake dataset or sideband samples:
+If you intend to retrain the boosted decision trees in the selection ([see later](#bdttraining)), you should also have a file called `training_new_slimmed.pckl`. And, optionally, if you process fake dataset or sideband samples:
 ```
+beam_sideband_slimmed.pckl  
 set1_slimmed.pckl   
 set2_slimmed.pckl  
 set3_slimmed.pckl  
@@ -109,6 +109,12 @@ set5_slimmed.pckl
 If you also processed the detector variation samples, you will have a large set of additional `pckl` files as listed in the table above. These files are the input of the selection and plotting framework. Personally, at this stage I copy those files to my local environment, but using miniconda, the selection and plotting can also be performed on the interactive nodes. 
 
 ## Applying the selection and adding additional variables
+
+### Without retraining the BDTs
+
+### With retraining the BDTs
+<a name="bdttraining"></a>
+
 
 ## Plotting the outcome
 
