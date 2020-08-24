@@ -89,6 +89,25 @@ The files handling the preprocessing are part of this repository in the [helpers
      * Function: After loading the samples in the previous step, we still have a plethora of simulated samples which contain overlap: the nu sample, nue sample, filtered samples. This python script groups these together in two outgoing samples with the same structure: a BNB nu sample which includes the increased statistics and correctly weighted the events; and a train sample which is used for retraining. 
      * Configurable parameters: `input_dir`, `training`, `remove_universes`, `reduce_query`
      * Warning: the output files of this step are needed for the subsequent selection and will dictate the memory requirement of the chain. The file size can be reduced by `remove_universes`, which removes the weights of the universes corresponding to xsec, flux and reinteraction systematics. Another way to reduce the size is by trimming the `daughters` dataframe, which is by far the largest object after the universes. The `reduce_query` throws away certain daughters. It is important that there is still a way to broadcast data between the `mc` and `daughters` data structure.
+     
+After succesfully running these four scripts, you should at least have the following set of files:
+```
+beam_on_slimmed.pckl 
+beam_off_slimmed.pckl  
+beam_sideband_slimmed.pckl  
+nu_new_slimmed.pckl    
+dirt_slimmed.pckl    
+```
+And, optionally if you process fake dataset or sideband samples:
+```
+set1_slimmed.pckl   
+set2_slimmed.pckl  
+set3_slimmed.pckl  
+set4_slimmed.pckl
+set5_slimmed.pckl
+```
+If you also processed the detector variation samples, you will have a large set of additional `pckl` files as listed in the table above. These files are the input of the selection and plotting framework. Personally, at this stage I copy those files to my local environment, but using miniconda, the selection and plotting can also be performed on the interactive nodes. 
+
 ## Applying the selection and adding additional variables
 
 ## Plotting the outcome
