@@ -42,9 +42,34 @@ nue.root
 ```
 The naming convention is specified in [helpers/gpvm/enum_sample.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/gpvm/enum_sample.py)
 
+The *syst* folder contains samples that are used to evaluate the detector variations. They are again split by run and depending on the availibility of the samples, the contents could be similar to:
+
+| BNB Electron neutrino     | BNB All neutrinos        | Muon Charged-Current pi0    | Muon Neutral-Current pi0    |
+|---------------------------|--------------------------|-----------------------------|-----------------------------|
+| nue_CV.root               | nu_CV.root               | ccpi0_CV.root               | ncpi0_CV.root               |
+| nue_LYAttenuation.root    | nu_LYAttenuation.root    |                             |                             |
+| nue_LYDown.root           | nu_LYDown.root           | ccpi0_LYDown.root           | ncpi0_LYDown.root           |
+| nue_LYRayleigh.root       | nu_LYRayleigh.root       | ccpi0_LYRayleigh.root       | ncpi0_LYRayleigh.root       |
+| nue_Recomb2.root          | nu_Recomb2.root          |                             |                             |
+| nue_SCE.root              | nu_SCE.root              | ccpi0_SCE.root              | ncpi0_SCE.root              |
+| nue_WireModAngleXZ.root   | nu_WireModAngleXZ.root   | ccpi0_WireModAngleXZ.root   |                             |
+| nue_WireModAngleYZ.root   | nu_WireModAngleYZ.root   | ccpi0_WireModAngleYZ.root   | ncpi0_WireModAngleYZ.root   |
+| nue_WireModScaledEdX.root | nu_WireModScaledEdX.root | ccpi0_WireModScaledEdX.root | ncpi0_WireModScaledEdX.root |
+| nue_WireModScaleX.root    | nu_WireModScaleX.root    | ccpi0_WireModScaleX.root    | ncpi0_WireModScaleX.root    |
+| nue_WireModScaleYZ.root   | nu_WireModScaleYZ.root   | ccpi0_WireModScaleYZ.root   | ncpi0_WireModScaleYZ.root   |
+
+These sameples are only necessary to include detector variations in the error bars on the data-to-simulation comparison plots ([see later](#datamc)).
+
 ### Processing the *NTuples* to python style objects.
 
 The files handling the preprosessing are part of this repository in the [helpers/gpvm](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/gpvm/) folder. Except of the file [ZarkoCaller.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/gpvm/ZarkoCaller.py), they rely on an environment running python 3 with numpy, pandas and [uproot](https://github.com/scikit-hep/uproot) availible. On the interactive nodes, this can be easily achieved by installing [miniconda](https://docs.conda.io/en/latest/miniconda.html)  
 
 1. 
+
+## Applying the selection and adding additional variables
+
+## Plotting the outcome
+
+### Data to simulation comparisons
+<a name="datamc"></a>
 
