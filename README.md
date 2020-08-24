@@ -67,15 +67,24 @@ The files handling the preprocessing are part of this repository in the [helpers
 
 1. Protons-on-target (POT) counting: 
    * [RunSubrun.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/gpvm/RunSubrun.py)
-     * Configurable parameters: `dir_path`
+     * Configurable parameters: `dir_path`.
      * Function: build a `txt` file with the run subrun information for data (beam_on, beam_off, beam_sideband). 
    * [ZarkoCaller.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/gpvm/ZarkoCaller.py)
      * Warning: This is the only script which relies on python 2.x and samweb tools being setup, these dependencies are enforced by `/uboone/app/users/zarko/getDataInfo.py`.
-     * Configurable parameters: `dir_path`
+     * Configurable parameters: `dir_path`.
      * Function: creates a `scaling.txt` file with the POT/triggers information for data samples. 
      
 2. Restructuring and slimming the data
    * [RootLoader.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/gpvm/Rootloader.py)
+     * Function: Restructure the information from the ROOT tree into a dictionary with the following keys:
+       * pot: POT count of samples, per run period.
+       * triggers: triggers for data samples, used for correct normalisation, per run period.
+       * fields: the list of fields that were availible in the original RAW intput *NTuple*.
+       * numentries: Number of events in sample, summer over run periods.
+       * daughters: dataframe filled for every daughter in events passing the NeutrinoID.
+       * mc: dictionary filled for every event in the sample, contains ground truth information and a field to broadcast between the `mc` and `daughters` indexes, by default, this is `n_pfps` (the number of daughters in an event).
+     * Configurable parameters: `dir_path`, `syst_loading`, `out_samples`.
+       The fields that will be loaded into the `mc` and `daughter` keys are defined in [col_load.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/gpvm/col_load.py)
    * [Merger.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/gpvm/Merger.py)
    
 ## Applying the selection and adding additional variables
