@@ -63,7 +63,7 @@ The sideband folder and the fake folder are containing ROOT *NTuples* that can b
 
 ### Processing the *NTuples* to python style objects.
 
-The files handling the preprocessing are part of this repository in the [helpers/gpvm](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/gpvm/) folder. Except for the file [ZarkoCaller.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/gpvm/ZarkoCaller.py), they rely on an environment running python 3 with numpy, pandas and [uproot](https://github.com/scikit-hep/uproot) available. On the interactive nodes, this can be easily achieved by installing [miniconda](https://docs.conda.io/en/latest/miniconda.html)  
+The files handling the preprocessing are part of this repository in the [helpers/gpvm](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/gpvm/) folder. Except for the file [ZarkoCaller.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/gpvm/ZarkoCaller.py), they rely on an environment running python 3 with numpy, pandas and [uproot](https://github.com/scikit-hep/uproot) available. On the interactive nodes, this can be easily achieved by installing [miniconda](https://docs.conda.io/en/latest/miniconda.html). If processing the *NTuples* from scratch, it is advised to run the four following scripts in this order:
 
 1. Protons-on-target (POT) counting: 
    * [RunSubrun.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/gpvm/RunSubrun.py)
@@ -73,7 +73,7 @@ The files handling the preprocessing are part of this repository in the [helpers
      * Warning: This is the only script which relies on python 2.x and samweb tools being setup, these dependencies are enforced by `/uboone/app/users/zarko/getDataInfo.py`.
      * Configurable parameters: `dir_path`.
      * Function: creates a `scaling.txt` file with the POT/triggers information for data samples. 
-     
+    
 2. Restructuring and slimming the data
    * [RootLoader.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/gpvm/Rootloader.py)
      * Function: Restructure the information from the ROOT tree into a dictionary with the following keys:
@@ -86,7 +86,9 @@ The files handling the preprocessing are part of this repository in the [helpers
      * Configurable parameters: `dir_path`, `syst_loading`, `out_samples`.
        The fields that will be loaded into the `mc` and `daughter` keys are defined in [col_load.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/gpvm/col_load.py)
    * [Merger.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/gpvm/Merger.py)
-   
+     * Function: After loading the samples in the previous step, we still have a plethora of simulated samples which contain overlap: the nu sample, nue sample, filtered samples. This python script groups these together in two outgoing samples with the same structure: a BNB nu sample which includes the increased statistics and correctly weighted the events; and a train sample which is used for retraining. 
+     * Configurable parameters: `input_dir`, `training`, `remove_universes`, `reduce_query`
+     * Warning: the output files of this step are needed for the subsequent selection and will dictate the memory requirement of the chain. The file size can be reduced by `remove_universes`, which removes the weights of the universes corresponding to xsec, flux and reinteraction systematics. Another way to reduce the size is by trimming the `daughters` dataframe, which is by far the largest object after the universes. The `reduce_query` throws away certain daughters. It is important that there is still a way to broadcast data between the `mc` and `daughters` data structure.
 ## Applying the selection and adding additional variables
 
 ## Plotting the outcome
