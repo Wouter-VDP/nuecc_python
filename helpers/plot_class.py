@@ -564,17 +564,6 @@ class Plotter:
         err_combined2 = err_off ** 2 + err_mc ** 2
         widths = edges_mid - edges[:-1]
 
-        if show_data:
-            # On
-            ax[0].errorbar(
-                edges_mid,
-                beam_on_bins,
-                xerr=widths,
-                yerr=err_on,
-                color=colors[-1],
-                fmt=".",
-                label=labels[-1],
-            )
         # Off
         ax[0].bar(
             edges_mid,
@@ -614,7 +603,29 @@ class Plotter:
                     color=col_i,
                 )
                 prediction += bin_i
-
+                
+        if show_data:
+            # On
+            ax[0].errorbar(
+                edges_mid,
+                beam_on_bins,
+                xerr=widths,
+                yerr=err_on,
+                color=colors[-1],
+                fmt=".",
+                label=labels[-1],
+            )
+        else:
+            ax[0].errorbar(
+                edges_mid,
+                prediction,
+                xerr=widths,
+                yerr=np.sqrt(prediction),
+                color='k',
+                fmt=".",
+                label="Expected: {}".format(int(sum(prediction))),
+            )
+            
         if self.detvar_dict != None:
             detvar_key = (
                 field,
@@ -642,6 +653,7 @@ class Plotter:
                 prediction / 2 + beam_on_bins,
             )
             # overwrite the diagonal elements and add the MC/EXT stat and CNP contributions
+            #cov = np.zeros((N_bins, N_bins))
             cov[np.diag_indices_from(cov)] = err_combined2 + err_stat_cnp
             diff = beam_on_bins - prediction
             # print('sqrt(err_combined2+np.diag(cov))', np.sqrt(err_combined2)/prediction)
@@ -717,8 +729,16 @@ class Plotter:
                 beam_on_bins / prediction,
                 xerr=widths,
                 yerr=err_on / prediction,
-                alpha=1.0,
                 color="k",
+                fmt=".",
+            )
+        else:
+            ax[1].errorbar(
+                edges_mid,
+                np.ones(N_bins),
+                xerr=widths,
+                yerr=np.sqrt(prediction)/prediction,
+                color='k',
                 fmt=".",
             )
         ax[1].set_ylabel(r"$\frac{BNB\ On}{BNB\ Off\,+\,MC}$")
