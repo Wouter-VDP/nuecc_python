@@ -110,6 +110,13 @@ If you also processed the detector variation samples, you will have a large set 
 
 ## Applying the selection and adding additional variables
 
+The first stage of the selection is the NeutrinoID, one can verify if an event/daughter passed this step by testing for `n_pfps>0`. Events that do not pass the NeutrinoID will not have reconstructed pfps (Particle flow particles).
+
+The electron neutrino selection is performed on the `daughters` entry of the dictionary. The goal is to add three boolean columns:
+* e_candidate: True for all daughters that fullfill the `e_cand_str` query defined in [helpers/helpfunction.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/helpfunction.py)
+* preselect: True for all daughters in an event that passes the preselection cuts, which are defined by `query_preselect` in [helpers/helpfunction.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/helpfunction.py)
+* select: True for e_candidate daughters that pass the full BDT-based selection. This selection is parametrised by a single cut value on the event BDT response, defined as `cut_val` in [nue_selection_helper.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/nue_selection_helper.py)
+
 ### Without retraining the BDTs
 
 ### With retraining the BDTs
