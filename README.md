@@ -141,7 +141,7 @@ Which will create `after_training.pckl` including the `plot_samples` list as key
 ### With retraining the BDTs
 <a name="bdttraining"></a>
 
-
+The inclusive electron neutrino selection contains three boosted decision trees. These are modelled by the [XGBoost](https://xgboost.readthedocs.io/en/latest/) package and the trained models are stored in [models/](https://github.com/Wouter-VDP/nuecc_python/tree/master/models).
 
 ## Plotting the outcome
 
