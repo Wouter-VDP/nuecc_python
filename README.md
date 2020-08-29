@@ -132,7 +132,9 @@ import nue_selection_helper as nue_helper
 input_dir = "./input/July2020/"
 output_dir = "./output/"
 plot_samples = {'nu','set1','set2','set3','set4','set5',"dirt", "on", "off",'sideband'}
-nue_helper.CreateAfterTraining(plot_samples, input_dir, one_file=input_dir+'lite/after_training.pckl')
+nue_helper.CreateAfterTraining(plot_samples, 
+                               input_dir, 
+                               one_file=input_dir+'lite/after_training.pckl')
 ```
 Which will create `after_training.pckl` including the `plot_samples` list as keys. Note that detector variations are not included in `plot_samples`. Although one could do this, to reduce file sizes, they are stored in `sys_after_training.pckl`. The latter is created by [NuePlots_DetSys.ipynb](https://github.com/Wouter-VDP/nuecc_python/blob/master/NuePlots_DetSys.ipynb).
 
