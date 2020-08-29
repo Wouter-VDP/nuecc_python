@@ -124,8 +124,21 @@ After applying the selection on the samples of interest, we end up with maximum 
 
 ### Without retraining the BDTs
 
+The selection flow is excecuted by [nue_selection_helper.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/nue_selection_helper.py). 
+
+This can be excuted with a command similar to:
+```python
+import nue_selection_helper as nue_helper
+input_dir = "./input/July2020/"
+output_dir = "./output/"
+plot_samples = {'nu','set1','set2','set3','set4','set5',"dirt", "on", "off",'sideband'}
+nue_helper.CreateAfterTraining(plot_samples, input_dir, one_file=input_dir+'lite/after_training.pckl')
+```
+Which will create `after_training.pckl` including the `plot_samples` list as keys. Note that detector variations are not included in `plot_samples`. Although one could do this, to reduce file sizes, they are stored in `sys_after_training.pckl`. The latter is created by [NuePlots_DetSys.ipynb](https://github.com/Wouter-VDP/nuecc_python/blob/master/NuePlots_DetSys.ipynb).
+
 ### With retraining the BDTs
 <a name="bdttraining"></a>
+
 
 
 ## Plotting the outcome
