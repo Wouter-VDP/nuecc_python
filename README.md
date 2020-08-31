@@ -151,11 +151,10 @@ The configuration of the selection is identical to [nue_selection_helper.py](htt
 
 Additionaly there are a set of configurable parameters connected to the training:
 * `retrain` (bool): retrain the three XGBoost models. 
-* `train_ana` (bool): perform a scan over a set of tree depths to determine the omptimal depth. This is needed to produce the plots in [output/training](https://github.com/Wouter-VDP/nuecc_python/tree/master/output/training)created by `nue_helper.helper.analyse_training`
-seed = 7
-test_size = 0.05
-lee_focus = 1.0
-train_sample = "train_new"
+* `train_ana` (bool): perform a scan over a set of tree depths to determine the omptimal depth. This is needed to produce the plots in [output/training](https://github.com/Wouter-VDP/nuecc_python/tree/master/output/training) created by `nue_helper.helper.analyse_training`
+* seed = 7
+* test_size = 0.05
+* lee_focus = 1.0
 
 ## Plotting the outcome
 
