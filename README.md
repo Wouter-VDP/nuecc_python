@@ -1,6 +1,7 @@
 # Inclusive electron neutrino search in MicroBooNE with BNB 
 
-This set of python scripts and [jupyter notebooks](https://jupyter.org/) leads to the selection and plots of inclusive electron neutrino search. The guidelines and explanations given here are meant to enable anyone to reproduce and extend the results. For a physics view of the selection and outcomes, please see my PhD thesis [inspirehep.net/literature/1798013](https://inspirehep.net/literature/1798013) 
+This set of python scripts and [jupyter notebooks](https://jupyter.org/) leads to the selection and plots of inclusive electron neutrino search. The guidelines and explanations given here are meant to enable anyone to reproduce and extend the results. For a physics view of the selection and outcomes, please see my PhD thesis [inspirehep.net/literature/1798013](https://inspirehep.net/literature/1798013).
+
 For any additional questions, feel free to email me at <wvdp@mit.edu>.
 
 The input for these scripts are the *NTuples* produced by the [searchingfornues repository](https://github.com/ubneutrinos/searchingfornues "https://github.com/ubneutrinos/searchingfornues") 
