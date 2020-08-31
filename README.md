@@ -172,8 +172,8 @@ Plots that only require simulation information are done in [NuePlots_truth.ipynb
 
 All data to simualtion comparison plots are inside [NuePlots_datamc.ipynb](https://github.com/Wouter-VDP/nuecc_python/blob/master/NuePlots_datamc.ipynb) and rely on the plotting class. The class is initialised as follows:
     
-  ```(python)
-  plotter = plot_class.Plotter(
+```(python)
+plotter = plot_class.Plotter(
       location,                     # Path to the input file after selection (after_training.pckl)
       signal="nue",                 # Signal can be either 'nue' or 'numu'
       genie_version="mcc9.1",       # Defines the basic event weight from genie: mcc8, mcc9.0 or mcc9.1
@@ -194,7 +194,34 @@ Example initialisations of these fields can be found in [NuePlots_datamc.ipynb](
 
 To make actual plots, the function `plotter.plot_panel_data_mc` is used:
 
+```
+def plot_panel_data_mc(
+        ax,                      # {tuple} -- matplotlib axes, length should be 2
+        field,                   # {string} -- argument of pandas.eval()
+        x_label,                 # {string} -- x-axis label
+        N_bins,                  # {int} -- number or bins
+        x_min,                   # {float} -- the minimum number along x
+        x_max,                   # {float} -- the maximum number along x
+        query="",                # {string} -- pandas.query() argument applied on all events
+        title_str="",            # {string} -- right title string of the upper plot
+        legend=True,             # {bool} -- plot the legend on the right of the panel
+        y_max_scaler=1.025,      # {float} -- increase the upper y-axis range
+        kind="cat",              # {string} -- 'cat' (categories) / 'pdg' / 'int' (interaction type)  
+        show_data=True,          # {bool} -- plot the beam data
+        show_syst=True,          # {bool} -- include systematic errors
+        syst_fractions=None,     # {list} -- deprecated! list of fractional errors per bin
+        y_label="Events per bin",
+        show_lee=None,           # {bool} -- overwrite the show_lee bool in the class
+)
+```
+The function returns:
+* `ratio`: data to simulation ratio and error
+* `purity`: signal purity of the selection for events passing the `query`
+* `ks_test_p`: probability of the KS test, two samples, weigthed as defined on [github.com/scipy/scipy/issues/12315](https://github.com/scipy/scipy/issues/12315)
+* `cnp`: Combined Neyman–Pearson Chi-square and p-cvalue ([arxiv.org/pdf/1903.07185](https://arxiv.org/pdf/1903.07185.pdf)).
+* `best_text_loc`: Best position to write text on the returned plot. 0: left, 1: middle, 2: right
 
+Plenty of examples are avilible in the [NuePlots_datamc.ipynb](https://github.com/Wouter-VDP/nuecc_python/blob/master/NuePlots_datamc.ipynb) notebook to demonstrate the use in practice.
 
 ### Covariance matrices 
 
