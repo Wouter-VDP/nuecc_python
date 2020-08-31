@@ -225,16 +225,25 @@ Plenty of examples are avilible in the [NuePlots_datamc.ipynb](https://github.co
 
 ### Covariance matrices 
 
+The covariance matrix is generated for every variable when `plot_panel_data_mc` is called. In [](https://github.com/Wouter-VDP/nuecc_python/blob/master/NuePlots_Cov.ipynb) it is demonstrated how the covariance matrix can be extracted on its own and plotted as a 2D histogram using the function `get_cov` in the plotting class. 
+
 ### Detector Variations 
 
 Detector variations are handled by [NuePlots_DetSys.ipynb](https://github.com/Wouter-VDP/nuecc_python/blob/master/NuePlots_DetSys.ipynb) which mostly relies on [helpers/detvar.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/detvar.py).
 
-The basic principle:
-Take the nue, ncpi0 and ccpi0 CV detvar sample and weight it up to a fixed POT (take 1e21 for illustration)
-given a selection query and a plotting variable + range, create new number of bins to optimise statistics: if less than 8 bins, keep bins, otherwise, reduce the number of bins with factor 2. (for the nu sample, follow the same procedure but take a single bin due to low stats)
-for the CV with this binning, calculate the bins
-for each variation, calculate the bins and compare with the CV, if the difference is within one sigma combined stat error of both samples, ignore the difference for that bin/variation, if it is larger, keep it.
-Sum the differences in quadrature over the different variations.
-Go back to the original binning (trivial if the binning is the same as the original, otherwise, divide the difference over the 2 bins proportional to the CV sample)
-Add the 4 samples (nu, nue, ncpi0, ccpi0) in quadrature, the result is the error per bin that gets stored in a dictionary.
-Access this dictionary with the plotter class and scale to the POT of the plot.
+The basic procedure is:
+* Take the `nue`, `ncpi0` and `ccpi0` central value (CV) detvar sample and weight it up to a fixed POT (by default, `1e21` is taken)
+* Given a selection query, a plotting variable (field) and the x-axis range, create a new number of bins to optimise statistics: if less than 8 bins, keep bins, otherwise, reduce the number of bins with factor 2. For the `nu` sample, follow the same procedure but take a single bin due to low statistics after selection.
+* For the CV variation, with this binning, calculate the histogram.
+* For each variation, calculate the histogram and compare with the CV. If the difference is within one sigma combined statistical error of both samples, ignore the difference for that bin/variation. If it is larger, keep it.
+* Sum the differences in quadrature over the different variations for each bin.
+* Go back to the original binning:
+  * Do nothing if the binning is the same as the original
+  * Otherwise, divide the difference over the 2 bins proportional to the CV sample.
+* Add the four samples (`nu`, `nue`, `ncpi0`, `ccpi0`) in quadrature
+* The result, the error per bin, gets stored in a dictionary.
+* Access this dictionary with the plotter class and scale to the POT of the plot.
+
+This is fully automated by running the data to simulation plots first. In this step, requests will be added to the dictionary that keeps track of the detector variations. Now, run the cell in [NuePlots_DetSys.ipynb](https://github.com/Wouter-VDP/nuecc_python/blob/master/NuePlots_DetSys.ipynb) that calls `detvar.get_syt_var` for every combination. This will calculate the detecotr variations for all the plots we want to make and update the dictionary file accordingly. Finally, rerun the data to simulation comparison plots. THhe dictionary should not contain the detector variations and they will be included in the plots.
+
+
