@@ -226,3 +226,15 @@ Plenty of examples are avilible in the [NuePlots_datamc.ipynb](https://github.co
 ### Covariance matrices 
 
 ### Detector Variations 
+
+Detector variations are handled by [NuePlots_DetSys.ipynb](https://github.com/Wouter-VDP/nuecc_python/blob/master/NuePlots_DetSys.ipynb) which mostly relies on [helpers/detvar.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/detvar.py).
+
+The basic principle:
+Take the nue, ncpi0 and ccpi0 CV detvar sample and weight it up to a fixed POT (take 1e21 for illustration)
+given a selection query and a plotting variable + range, create new number of bins to optimise statistics: if less than 8 bins, keep bins, otherwise, reduce the number of bins with factor 2. (for the nu sample, follow the same procedure but take a single bin due to low stats)
+for the CV with this binning, calculate the bins
+for each variation, calculate the bins and compare with the CV, if the difference is within one sigma combined stat error of both samples, ignore the difference for that bin/variation, if it is larger, keep it.
+Sum the differences in quadrature over the different variations.
+Go back to the original binning (trivial if the binning is the same as the original, otherwise, divide the difference over the 2 bins proportional to the CV sample)
+Add the 4 samples (nu, nue, ncpi0, ccpi0) in quadrature, the result is the error per bin that gets stored in a dictionary.
+Access this dictionary with the plotter class and scale to the POT of the plot.
