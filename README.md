@@ -171,38 +171,31 @@ Plots that only require simulation information are done in [NuePlots_truth.ipynb
 <a name="datamc"></a>
 
 All data to simualtion comparison plots are inside [NuePlots_datamc.ipynb](https://github.com/Wouter-VDP/nuecc_python/blob/master/NuePlots_datamc.ipynb) and rely on the plotting class. The class is initialised as follows:
-    # location: path to pckl dictionary
-    # signal: nue or numu
-    # genie version: mcc9, mcc9.0 or mcc9.1
-    # norm_pot: scale plots to a fixed pot, currently breaka KS test
-    # master_query: applied on daughters for all plots, reduced memory
-    # beam_on: on or sideband
-    # pot_dict: overwrites the pot in the pckled file
-    # load_syst: string set with keys in the ['mc'] dict
-    # load_detvar: path to the dict
-    # show_lee: show lee_model by default on plots, bool
-    # pi0_scaling: apply a predefined pi0 scaling on the MC
-    # dirt: bool, do you wan to include dirt info?
-    # n_uni_max: per systematic variation, what is the max number of universes we want to use.
-    # write_slimmed_output: write some fields of selected events to a txt file
-    ```(python)
-    plotter = plot_class.Plotter(
-        location,                     # path to the input file after selection (after_training.pckl)
-        signal="nue",                 # signal can be either 'nue' or 'numu'
-        genie_version="mcc9.1",
-        norm_pot=0,
-        master_query=None,
-        beam_on="on",
-        pot_dict={},
-        load_syst=None,
-        load_detvar=None,
-        show_lee=False,
-        pi0_scaling=False,
-        dirt=True,
-        n_uni_max=2000,
-        write_slimmed_output=False,
-    ):
+    
+  ```(python)
+  plotter = plot_class.Plotter(
+      location,                     # Path to the input file after selection (after_training.pckl)
+      signal="nue",                 # Signal can be either 'nue' or 'numu'
+      genie_version="mcc9.1",       # Defines the basic event weight from genie: mcc8, mcc9.0 or mcc9.1
+      norm_pot=0,                   # In case you want the POT scaled to a fixed value instead of the data.
+      master_query=None,            # Query that is applied on all events that will be loaded, reduces memory.
+      beam_on="on",                 # Sample that is used as the neutrino data; on, sidebands, fake data-sets ...
+      pot_dict={},                  # Overwrite the pot scaling of the data with a custom dict, can be useful to look at specific Runs.
+      load_syst=None,               # List of strings that contain the multiverse systematics.
+      load_detvar=None,             # Path to the dictionary taking care of the detector variations.
+      show_lee=False,               # Default choice of showing the MiniBooNE LEE model in the plots.
+      pi0_scaling=False,            # Apply a predefined pi0 scaling on the events.
+      dirt=True,                    # Default choice to show the dirt sample in the plots.
+      n_uni_max=2000,               # Maximum amount of universes used be load_syst vartiation, reduces memory.
+      write_slimmed_output=False,   # Write some fields of selected events to plain text file.
+  )
 ```
+Example initialisations of these fields can be found in [NuePlots_datamc.ipynb](https://github.com/Wouter-VDP/nuecc_python/blob/master/NuePlots_datamc.ipynb).
+
+To make actual plots, the function `plotter.plot_panel_data_mc` is used:
+
+
+
 ### Covariance matrices 
 
 ### Detector Variations 
