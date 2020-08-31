@@ -117,6 +117,8 @@ The electron neutrino selection is performed on the `daughters` entry of the dic
 * preselect: True for all daughters in an event that passes the preselection cuts, which are defined by `query_preselect` in [helpers/helpfunction.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/helpfunction.py).
 * select: True for e_candidate daughters that pass the full BDT-based selection. This selection is parametrised by a single cut value on the event BDT response, defined as `cut_val` in [nue_selection_helper.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/nue_selection_helper.py).
 
+The preselect stage also requires a fiducial volume, this is defined in [helpers/helpfunction.py#L66-L72](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/helpfunction.py#L66-L72).
+
 After applying the selection on the samples of interest, we end up with maximum three `pckl` files, which should be located in `intput/*/lite/`:
 * `after_training.pckl`
 * `sys_after_training.pckl`
@@ -143,8 +145,84 @@ Which will create `after_training.pckl` including the `plot_samples` list as key
 
 The inclusive electron neutrino selection contains three boosted decision trees. These are modelled by the [XGBoost](https://xgboost.readthedocs.io/en/latest/) package and the trained models are stored in [models/](https://github.com/Wouter-VDP/nuecc_python/tree/master/models).
 
+The training is performed in the bulk of [NueSelection.ipynb](https://github.com/Wouter-VDP/nuecc_python/blob/master/NueSelection.ipynb) and requires an input file called `training_new.pckl` which can be created by [helpers/gpvm/Merger.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/gpvm/Merger.py). One should be extremely carefull not to have any duplicated events between `training_new.pckl` and `nu_new.pckl`. In the past, the training set consisted of unused filters, Run 2 overlay samples, low-energy electron neutrino samples and the redundant events (as replaced by the filters) in the Run 1 and Run 3 BNB nu overlay events. No data was used in the training process. Note that these combinations are not set in stone and one is free to construct a training data-set as pleased as long as it is disjunct from the plotting data-sets.
+
+The configuration of the selection is identical to [nue_selection_helper.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/nue_selection_helper.py) but is excecuted step-by-step to enhance the tunability and intermediate outputs of the selection.
+
+Additionaly there are a set of configurable parameters connected to the training:
+* `retrain` (bool): retrain the three XGBoost models. 
+* `train_ana` (bool): perform a scan over a set of tree depths to determine the omptimal depth. This is needed to produce the plots in [output/training](https://github.com/Wouter-VDP/nuecc_python/tree/master/output/training) created by `nue_helper.helper.analyse_training`
+* `test_size` (0-1 range): fraction of events in `training_new.pckl` that is used for training, versus used for the evaluation metrics. Note that even if this is set to 0, the events will be completely disjunct from `nu_new.pckl`, as should be the case. While evaluating, 0.25 works well; for final trianing, 0 can be used.
+* `lee_focus` (default 1.0): variable that increases training weight for low energetic electron neutrino events. 
+
+The columns that are used for training the three boosted decision trees as defined in [helpers/nue_selection_columns.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/nue_selection_columns.py). In the same file, the columns that are kept and removed to create the `after_training.pckl` file can be changed, depending on the fields one want to plot.
+
 ## Plotting the outcome
+
+Congratulations, you made it to actually plotting the results!
+The plotting is handled by a class defined in [helpers/plot_class.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/plot_class.py).
+The class is able to make plots for both muon and electron selections, the categories for the plots are defined in [helpers/plot_dicts_nue.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/plot_dicts_nue.py) and [helpers/plot_dicts_numu.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/plot_dicts_numu.py).
+
+### Truth-based plots
+
+Plots that only require simulation information are done in [NuePlots_truth.ipynb](https://github.com/Wouter-VDP/nuecc_python/blob/master/NuePlots_truth.ipynb). These do not require the plotting class but do use some basic help functions to aide the efficiency calculations. The notebook should be self-explanatory. 
 
 ### Data to simulation comparisons
 <a name="datamc"></a>
 
+All data to simualtion comparison plots are inside [NuePlots_datamc.ipynb](https://github.com/Wouter-VDP/nuecc_python/blob/master/NuePlots_datamc.ipynb) and rely on the plotting class. The class is initialised as follows:
+    
+```(python)
+plotter = plot_class.Plotter(
+      location,                     # Path to the input file after selection (after_training.pckl)
+      signal="nue",                 # Signal can be either 'nue' or 'numu'
+      genie_version="mcc9.1",       # Defines the basic event weight from genie: mcc8, mcc9.0 or mcc9.1
+      norm_pot=0,                   # In case you want the POT scaled to a fixed value instead of the data.
+      master_query=None,            # Query that is applied on all events that will be loaded, reduces memory.
+      beam_on="on",                 # Sample that is used as the neutrino data; on, sidebands, fake data-sets ...
+      pot_dict={},                  # Overwrite the pot scaling of the data with a custom dict, can be useful to look at specific Runs.
+      load_syst=None,               # List of strings that contain the multiverse systematics.
+      load_detvar=None,             # Path to the dictionary taking care of the detector variations.
+      show_lee=False,               # Default choice of showing the MiniBooNE LEE model in the plots.
+      pi0_scaling=False,            # Apply a predefined pi0 scaling on the events.
+      dirt=True,                    # Default choice to show the dirt sample in the plots.
+      n_uni_max=2000,               # Maximum amount of universes used be load_syst vartiation, reduces memory.
+      write_slimmed_output=False,   # Write some fields of selected events to plain text file.
+  )
+```
+Example initialisations of these fields can be found in [NuePlots_datamc.ipynb](https://github.com/Wouter-VDP/nuecc_python/blob/master/NuePlots_datamc.ipynb).
+
+To make actual plots, the function `plotter.plot_panel_data_mc` is used:
+
+```
+def plot_panel_data_mc(
+        ax,                      # {tuple} -- matplotlib axes, length should be 2
+        field,                   # {string} -- argument of pandas.eval()
+        x_label,                 # {string} -- x-axis label
+        N_bins,                  # {int} -- number or bins
+        x_min,                   # {float} -- the minimum number along x
+        x_max,                   # {float} -- the maximum number along x
+        query="",                # {string} -- pandas.query() argument applied on all events
+        title_str="",            # {string} -- right title string of the upper plot
+        legend=True,             # {bool} -- plot the legend on the right of the panel
+        y_max_scaler=1.025,      # {float} -- increase the upper y-axis range
+        kind="cat",              # {string} -- 'cat' (categories) / 'pdg' / 'int' (interaction type)  
+        show_data=True,          # {bool} -- plot the beam data
+        show_syst=True,          # {bool} -- include systematic errors
+        syst_fractions=None,     # {list} -- deprecated! list of fractional errors per bin
+        y_label="Events per bin",
+        show_lee=None,           # {bool} -- overwrite the show_lee bool in the class
+)
+```
+The function returns:
+* `ratio`: data to simulation ratio and error
+* `purity`: signal purity of the selection for events passing the `query`
+* `ks_test_p`: probability of the KS test, two samples, weigthed as defined on [github.com/scipy/scipy/issues/12315](https://github.com/scipy/scipy/issues/12315)
+* `cnp`: Combined Neyman–Pearson Chi-square and p-cvalue ([arxiv.org/pdf/1903.07185](https://arxiv.org/pdf/1903.07185.pdf)).
+* `best_text_loc`: Best position to write text on the returned plot. 0: left, 1: middle, 2: right
+
+Plenty of examples are avilible in the [NuePlots_datamc.ipynb](https://github.com/Wouter-VDP/nuecc_python/blob/master/NuePlots_datamc.ipynb) notebook to demonstrate the use in practice.
+
+### Covariance matrices 
+
+### Detector Variations 
