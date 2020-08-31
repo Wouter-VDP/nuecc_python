@@ -1,6 +1,6 @@
 # Inclusive electron neutrino search in MicroBooNE with BNB 
 
-This set of python scripts and [jupyter notebooks](https://jupyter.org/) leads to the selection and plots of inclusive electron neutrino search.
+This set of python scripts and [jupyter notebooks](https://jupyter.org/) leads to the selection and plots of inclusive electron neutrino search. The guidlines and explanations given here are meant to enable anyone to reproduce and extend the results. For a physics view of the selection and outcomes, please see my PhD thesis [inspirehep.net/literature/1798013](https://inspirehep.net/literature/1798013) 
 For any additional questions, feel free to email me at <wvdp@mit.edu>.
 
 The input for these scripts are the *NTuples* produced by the [searchingfornues repository](https://github.com/ubneutrinos/searchingfornues "https://github.com/ubneutrinos/searchingfornues") 
@@ -246,4 +246,9 @@ The basic procedure is:
 
 This is fully automated by running the data to simulation plots first. In this step, requests will be added to the dictionary that keeps track of the detector variations. Now, run the cell in [NuePlots_DetSys.ipynb](https://github.com/Wouter-VDP/nuecc_python/blob/master/NuePlots_DetSys.ipynb) that calls `detvar.get_syt_var` for every combination. This will calculate the detecotr variations for all the plots we want to make and update the dictionary file accordingly. Finally, rerun the data to simulation comparison plots. THhe dictionary should not contain the detector variations and they will be included in the plots.
 
+# Done
 
+You made it to the end of this tutorial! As I started with, feel free to contact me in case of questions. You might have noticed that I did not discuss the file [NuePlots_StatisticalAnalisys.ipynb](https://github.com/Wouter-VDP/nuecc_python/blob/master/NuePlots_StatisticalAnalisys.ipynb). This file is yours, and serves as a playground to use the framework to perform cross-section or signal strength measurements. 
+
+All the best,
+Wouter
