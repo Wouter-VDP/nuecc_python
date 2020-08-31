@@ -147,17 +147,62 @@ The inclusive electron neutrino selection contains three boosted decision trees.
 
 The training is performed in the bulk of [NueSelection.ipynb](https://github.com/Wouter-VDP/nuecc_python/blob/master/NueSelection.ipynb) and requires an input file called `training_new.pckl` which can be created by [helpers/gpvm/Merger.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/gpvm/Merger.py). One should be extremely carefull not to have any duplicated events between `training_new.pckl` and `nu_new.pckl`. In the past, the training set consisted of unused filters, Run 2 overlay samples, low-energy electron neutrino samples and the redundant events (as replaced by the filters) in the Run 1 and Run 3 BNB nu overlay events. No data was used in the training process. Note that these combinations are not set in stone and one is free to construct a training data-set as pleased as long as it is disjunct from the plotting data-sets.
 
-The configuration of the selection is identical to [nue_selection_helper.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/nue_selection_helper.py) but is excecuted step-by-step to enhance the tunability and intermediate outputs of the selection. Note that [NueSelection.ipynb](https://github.com/Wouter-VDP/nuecc_python/blob/master/NueSelection.ipynb) is the only place in the framework where I think there is some code duplication that could be reduced by using the definitions defined in [nue_selection_helper.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/nue_selection_helper.py).
+The configuration of the selection is identical to [nue_selection_helper.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/nue_selection_helper.py) but is excecuted step-by-step to enhance the tunability and intermediate outputs of the selection.
 
 Additionaly there are a set of configurable parameters connected to the training:
 * `retrain` (bool): retrain the three XGBoost models. 
 * `train_ana` (bool): perform a scan over a set of tree depths to determine the omptimal depth. This is needed to produce the plots in [output/training](https://github.com/Wouter-VDP/nuecc_python/tree/master/output/training) created by `nue_helper.helper.analyse_training`
-* seed = 7
-* test_size = 0.05
-* lee_focus = 1.0
+* `test_size` (0-1 range): fraction of events in `training_new.pckl` that is used for training, versus used for the evaluation metrics. Note that even if this is set to 0, the events will be completely disjunct from `nu_new.pckl`, as should be the case. While evaluating, 0.25 works well; for final trianing, 0 can be used.
+* `lee_focus` (default 1.0): variable that increases training weight for low energetic electron neutrino events. 
+
+The columns that are used for training the three boosted decision trees as defined in [helpers/nue_selection_columns.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/nue_selection_columns.py). In the same file, the columns that are kept and removed to create the `after_training.pckl` file can be changed, depending on the fields one want to plot.
 
 ## Plotting the outcome
+
+Congratulations, you made it to actually plotting the results!
+The plotting is handled by a class defined in [helpers/plot_class.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/plot_class.py).
+The class is able to make plots for both muon and electron selections, the categories for the plots are defined in [helpers/plot_dicts_nue.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/plot_dicts_nue.py) and [helpers/plot_dicts_numu.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/plot_dicts_numu.py).
+
+### Truth-based plots
+
+Plots that only require simulation information are done in [NuePlots_truth.ipynb](https://github.com/Wouter-VDP/nuecc_python/blob/master/NuePlots_truth.ipynb). These do not require the plotting class but do use some basic help functions to aide the efficiency calculations. The notebook should be self-explanatory. 
 
 ### Data to simulation comparisons
 <a name="datamc"></a>
 
+All data to simualtion comparison plots are inside [NuePlots_datamc.ipynb](https://github.com/Wouter-VDP/nuecc_python/blob/master/NuePlots_datamc.ipynb) and rely on the plotting class. The class is initialised as follows:
+    # location: path to pckl dictionary
+    # signal: nue or numu
+    # genie version: mcc9, mcc9.0 or mcc9.1
+    # norm_pot: scale plots to a fixed pot, currently breaka KS test
+    # master_query: applied on daughters for all plots, reduced memory
+    # beam_on: on or sideband
+    # pot_dict: overwrites the pot in the pckled file
+    # load_syst: string set with keys in the ['mc'] dict
+    # load_detvar: path to the dict
+    # show_lee: show lee_model by default on plots, bool
+    # pi0_scaling: apply a predefined pi0 scaling on the MC
+    # dirt: bool, do you wan to include dirt info?
+    # n_uni_max: per systematic variation, what is the max number of universes we want to use.
+    # write_slimmed_output: write some fields of selected events to a txt file
+    ```(python)
+    plotter = plot_class.Plotter(
+        location,                     # path to the input file after selection (after_training.pckl)
+        signal="nue",                 # signal can be either 'nue' or 'numu'
+        genie_version="mcc9.1",
+        norm_pot=0,
+        master_query=None,
+        beam_on="on",
+        pot_dict={},
+        load_syst=None,
+        load_detvar=None,
+        show_lee=False,
+        pi0_scaling=False,
+        dirt=True,
+        n_uni_max=2000,
+        write_slimmed_output=False,
+    ):
+```
+### Covariance matrices 
+
+### Detector Variations 
