@@ -1,6 +1,6 @@
 # Inclusive electron neutrino search in MicroBooNE with BNB 
 
-This set of python scripts and [jupyter notebooks](https://jupyter.org/) leads to the selection and plots of inclusive electron neutrino search. The guidlines and explanations given here are meant to enable anyone to reproduce and extend the results. For a physics view of the selection and outcomes, please see my PhD thesis [inspirehep.net/literature/1798013](https://inspirehep.net/literature/1798013) 
+This set of python scripts and [jupyter notebooks](https://jupyter.org/) leads to the selection and plots of inclusive electron neutrino search. The guidelines and explanations given here are meant to enable anyone to reproduce and extend the results. For a physics view of the selection and outcomes, please see my PhD thesis [inspirehep.net/literature/1798013](https://inspirehep.net/literature/1798013) 
 For any additional questions, feel free to email me at <wvdp@mit.edu>.
 
 The input for these scripts are the *NTuples* produced by the [searchingfornues repository](https://github.com/ubneutrinos/searchingfornues "https://github.com/ubneutrinos/searchingfornues") 
@@ -59,7 +59,7 @@ The *syst* folder contains samples that are used to evaluate the detector variat
 
 These samples are only necessary to include detector variations in the error bars on the data-to-simulation comparison plots ([see later](#datamc)).
 
-The sideband folder and the fake folder are containing ROOT *NTuples* that can be swapped in the plotting framework with the `beam_on.root` sample. For example, in the folder sideband, there can be a single ROOT file named `beam_sideband.root` containing the sideband information of different runs. It is also possible to split the ROOT files by runs in subfolders as before, which is done for the fake data studies (see `/uboone/data/users/wvdp/searchingfornues/July2020/fake/`).
+The sideband folder and the fake folder are containing ROOT *NTuples* that can be swapped in the plotting framework with the `beam_on.root` sample. For example, in the folder sideband, there can be a single ROOT file named `beam_sideband.root` containing the sideband information of different runs. It is also possible to split the ROOT files by runs into subfolders as before, which is done for the fake data studies (see `/uboone/data/users/wvdp/searchingfornues/July2020/fake/`).
 
 ### Processing the *NTuples* to python style objects.
 
@@ -70,7 +70,7 @@ The files handling the preprocessing are part of this repository in the [helpers
      * Configurable parameters: `dir_path`.
      * Function: build a `txt` file with the run subrun information for data (beam_on, beam_off, beam_sideband). 
    * [ZarkoCaller.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/gpvm/ZarkoCaller.py)
-     * Warning: This is the only script which relies on python 2.x and samweb tools being setup, these dependencies are enforced by `/uboone/app/users/zarko/getDataInfo.py`.
+     * Warning: This is the only script which relies on python 2.x and samweb tools being set up, these dependencies are enforced by `/uboone/app/users/zarko/getDataInfo.py`.
      * Configurable parameters: `dir_path`.
      * Function: creates a `scaling.txt` file with the POT/triggers information for data samples. 
     
@@ -86,11 +86,11 @@ The files handling the preprocessing are part of this repository in the [helpers
      * Configurable parameters: `dir_path`, `syst_loading`, `out_samples`.
        The fields that will be loaded into the `mc` and `daughter` keys are defined in [col_load.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/gpvm/col_load.py)
    * [Merger.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/gpvm/Merger.py)
-     * Function: After loading the samples in the previous step, we still have a plethora of simulated samples which contain overlap: the nu sample, nue sample, filtered samples. This python script groups these together in two outgoing samples with the same structure: a BNB nu sample which includes the increased statistics and correctly weighted the events; and a train sample which is used for retraining. 
+     * Function: After loading the samples in the previous step, we still have a plethora of simulated samples which contain overlap: the nu sample, nue sample, filtered samples. This python script groups these together in two outgoing samples with the same structure: a BNB nu sample which includes the increased statistics and correctly weighted the events; and a training sample which is used for retraining. 
      * Configurable parameters: `input_dir`, `training`, `remove_universes`, `reduce_query`
      * Warning: the output files of this step are needed for the subsequent selection and will dictate the memory requirement of the chain. The file size can be reduced by `remove_universes`, which removes the weights of the universes corresponding to xsec, flux and reinteraction systematics. Another way to reduce the size is by trimming the `daughters` dataframe, which is by far the largest object after the universes. The `reduce_query` throws away certain daughters. It is important that there is still a way to broadcast data between the `mc` and `daughters` data structure.
      
-After succesfully running these four scripts, you should at least have the following set of files:
+After successfully running these four scripts, you should at least have the following set of files:
 ```
 beam_on_slimmed.pckl 
 beam_off_slimmed.pckl  
@@ -106,18 +106,18 @@ set3_slimmed.pckl
 set4_slimmed.pckl
 set5_slimmed.pckl
 ```
-If you also processed the detector variation samples, you will have a large set of additional `pckl` files as listed in the table above. These files are the input of the selection and plotting framework. Personally, at this stage I copy those files to my local environment, but using miniconda, the selection and plotting can also be performed on the interactive nodes. 
+If you also processed the detector variation samples, you will have a large set of additional `pckl` files as listed in the table above. These files are the input of the selection and plotting framework. Personally, at this stage, I copy those files to my local environment, but using miniconda, the selection and plotting can also be performed on the interactive nodes. 
 
 ## Applying the selection and adding additional variables
 
-The first stage of the selection is the NeutrinoID, one can verify if an event/daughter passed this step by testing for `n_pfps>0`. Events that do not pass the NeutrinoID will not have reconstructed pfps (Particle flow particles).
+The first stage of the selection is the NeutrinoID; one can verify if an event/daughter passed this step by testing for `n_pfps>0`. Events that do not pass the NeutrinoID will not have reconstructed pfps (Particle flow particles).
 
 The electron neutrino selection is performed on the `daughters` entry of the dictionary. The goal is to add three boolean columns:
-* e_candidate: True for all daughters that fullfill the `e_cand_str` query defined in [helpers/helpfunction.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/helpfunction.py).
+* e_candidate: True for all daughters that fulfil the `e_cand_str` query defined in [helpers/helpfunction.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/helpfunction.py).
 * preselect: True for all daughters in an event that passes the preselection cuts, which are defined by `query_preselect` in [helpers/helpfunction.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/helpfunction.py).
 * select: True for e_candidate daughters that pass the full BDT-based selection. This selection is parametrised by a single cut value on the event BDT response, defined as `cut_val` in [nue_selection_helper.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/nue_selection_helper.py).
 
-The preselect stage also requires a fiducial volume, this is defined in [helpers/helpfunction.py#L66-L72](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/helpfunction.py#L66-L72).
+The preselect stage also requires a fiducial volume. This is defined in [helpers/helpfunction.py#L66-L72](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/helpfunction.py#L66-L72).
 
 After applying the selection on the samples of interest, we end up with maximum three `pckl` files, which should be located in `intput/*/lite/`:
 * `after_training.pckl`
@@ -126,7 +126,7 @@ After applying the selection on the samples of interest, we end up with maximum 
 
 ### Without retraining the BDTs
 
-The selection flow is excecuted by [nue_selection_helper.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/nue_selection_helper.py). 
+The selection flow is executed by [nue_selection_helper.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/nue_selection_helper.py). 
 
 This can be excuted with a command similar to:
 ```python
@@ -143,25 +143,25 @@ Which will create `after_training.pckl` including the `plot_samples` list as key
 ### With retraining the BDTs
 <a name="bdttraining"></a>
 
-The inclusive electron neutrino selection contains three boosted decision trees. These are modelled by the [XGBoost](https://xgboost.readthedocs.io/en/latest/) package and the trained models are stored in [models/](https://github.com/Wouter-VDP/nuecc_python/tree/master/models).
+The inclusive electron neutrino selection contains three boosted decision trees. These are modelled by the [XGBoost](https://xgboost.readthedocs.io/en/latest/) package, and the trained models are stored in [models/](https://github.com/Wouter-VDP/nuecc_python/tree/master/models).
 
-The training is performed in the bulk of [NueSelection.ipynb](https://github.com/Wouter-VDP/nuecc_python/blob/master/NueSelection.ipynb) and requires an input file called `training_new.pckl` which can be created by [helpers/gpvm/Merger.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/gpvm/Merger.py). One should be extremely carefull not to have any duplicated events between `training_new.pckl` and `nu_new.pckl`. In the past, the training set consisted of unused filters, Run 2 overlay samples, low-energy electron neutrino samples and the redundant events (as replaced by the filters) in the Run 1 and Run 3 BNB nu overlay events. No data was used in the training process. Note that these combinations are not set in stone and one is free to construct a training data-set as pleased as long as it is disjunct from the plotting data-sets.
+The training is performed in the bulk of [NueSelection.ipynb](https://github.com/Wouter-VDP/nuecc_python/blob/master/NueSelection.ipynb) and requires an input file called `training_new.pckl` which can be created by [helpers/gpvm/Merger.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/gpvm/Merger.py). One should be extremely careful not to have any duplicated events between `training_new.pckl` and `nu_new.pckl`. In the past, the training set consisted of unused filters, Run 2 overlay samples, low-energy electron neutrino samples and the redundant events (as replaced by the filters) in the Run 1 and Run 3 BNB nu overlay events. No data was used in the training process. Note that these combinations are not set in stone, and one is free to construct a training data-set as pleased as long as it is disjunct from the plotting data-sets.
 
-The configuration of the selection is identical to [nue_selection_helper.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/nue_selection_helper.py) but is excecuted step-by-step to enhance the tunability and intermediate outputs of the selection.
+The configuration of the selection is identical to [nue_selection_helper.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/nue_selection_helper.py) but is executed step-by-step to enhance the tunability and intermediate outputs of the selection.
 
-Additionaly there are a set of configurable parameters connected to the training:
+Additionally, there are a set of configurable parameters connected to the training:
 * `retrain` (bool): retrain the three XGBoost models. 
-* `train_ana` (bool): perform a scan over a set of tree depths to determine the omptimal depth. This is needed to produce the plots in [output/training](https://github.com/Wouter-VDP/nuecc_python/tree/master/output/training) created by `nue_helper.helper.analyse_training`
-* `test_size` (0-1 range): fraction of events in `training_new.pckl` that is used for training, versus used for the evaluation metrics. Note that even if this is set to 0, the events will be completely disjunct from `nu_new.pckl`, as should be the case. While evaluating, 0.25 works well; for final trianing, 0 can be used.
+* `train_ana` (bool): perform a scan over a set of tree depths to determine the optimal depth. This is needed to produce the plots in [output/training](https://github.com/Wouter-VDP/nuecc_python/tree/master/output/training) created by `nue_helper.helper.analyse_training`
+* `test_size` (0-1 range): the fraction of events in `training_new.pckl` that is used for training, versus used for the evaluation metrics. Note that even if this is set to 0, the events will be completely disjunct from `nu_new.pckl`, as should be the case. While evaluating, 0.25 works well; for final training, 0 can be used.
 * `lee_focus` (default 1.0): variable that increases training weight for low energetic electron neutrino events. 
 
-The columns that are used for training the three boosted decision trees as defined in [helpers/nue_selection_columns.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/nue_selection_columns.py). In the same file, the columns that are kept and removed to create the `after_training.pckl` file can be changed, depending on the fields one want to plot.
+The columns used for training the three boosted decision trees are defined in [helpers/nue_selection_columns.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/nue_selection_columns.py). In the same file, the columns that are kept and removed to create the `after_training.pckl` file can be changed, depending on the fields one want to plot.
 
 ## Plotting the outcome
 
 Congratulations, you made it to actually plotting the results!
 The plotting is handled by a class defined in [helpers/plot_class.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/plot_class.py).
-The class is able to make plots for both muon and electron selections, the categories for the plots are defined in [helpers/plot_dicts_nue.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/plot_dicts_nue.py) and [helpers/plot_dicts_numu.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/plot_dicts_numu.py).
+The class is able to make plots for both muon and electron selections; the categories for the plots are defined in [helpers/plot_dicts_nue.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/plot_dicts_nue.py) and [helpers/plot_dicts_numu.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/plot_dicts_numu.py).
 
 ### Truth-based plots
 
@@ -170,7 +170,7 @@ Plots that only require simulation information are done in [NuePlots_truth.ipynb
 ### Data to simulation comparisons
 <a name="datamc"></a>
 
-All data to simualtion comparison plots are inside [NuePlots_datamc.ipynb](https://github.com/Wouter-VDP/nuecc_python/blob/master/NuePlots_datamc.ipynb) and rely on the plotting class. The class is initialised as follows:
+All data to simulation comparison plots are inside [NuePlots_datamc.ipynb](https://github.com/Wouter-VDP/nuecc_python/blob/master/NuePlots_datamc.ipynb) and rely on the plotting class. The class is initialised as follows:
     
 ```(python)
 plotter = plot_class.Plotter(
@@ -178,7 +178,7 @@ plotter = plot_class.Plotter(
       signal="nue",                 # Signal can be either 'nue' or 'numu'
       genie_version="mcc9.1",       # Defines the basic event weight from genie: mcc8, mcc9.0 or mcc9.1
       norm_pot=0,                   # In case you want the POT scaled to a fixed value instead of the data.
-      master_query=None,            # Query that is applied on all events that will be loaded, reduces memory.
+      master_query=None,            # Query that is applied to all events that will be loaded, reduces memory.
       beam_on="on",                 # Sample that is used as the neutrino data; on, sidebands, fake data-sets ...
       pot_dict={},                  # Overwrite the pot scaling of the data with a custom dict, can be useful to look at specific Runs.
       load_syst=None,               # List of strings that contain the multiverse systematics.
@@ -186,8 +186,8 @@ plotter = plot_class.Plotter(
       show_lee=False,               # Default choice of showing the MiniBooNE LEE model in the plots.
       pi0_scaling=False,            # Apply a predefined pi0 scaling on the events.
       dirt=True,                    # Default choice to show the dirt sample in the plots.
-      n_uni_max=2000,               # Maximum amount of universes used be load_syst vartiation, reduces memory.
-      write_slimmed_output=False,   # Write some fields of selected events to plain text file.
+      n_uni_max=2000,               # Maximum amount of universes used be load_syst variation, reduces memory.
+      write_slimmed_output=False,   # Write some fields of selected events to a plain text file.
   )
 ```
 Example initialisations of these fields can be found in [NuePlots_datamc.ipynb](https://github.com/Wouter-VDP/nuecc_python/blob/master/NuePlots_datamc.ipynb).
@@ -225,7 +225,7 @@ Plenty of examples are avilible in the [NuePlots_datamc.ipynb](https://github.co
 
 ### Covariance matrices 
 
-The covariance matrix is generated for every variable when `plot_panel_data_mc` is called. In [](https://github.com/Wouter-VDP/nuecc_python/blob/master/NuePlots_Cov.ipynb) it is demonstrated how the covariance matrix can be extracted on its own and plotted as a 2D histogram using the function `get_cov` in the plotting class. 
+The covariance matrix is generated for every variable when `plot_panel_data_mc` is called. In [NuePlots_Cov.ipynb](https://github.com/Wouter-VDP/nuecc_python/blob/master/NuePlots_Cov.ipynb) it is demonstrated how the covariance matrix can be extracted on its own and plotted as a 2D histogram using the function `get_cov` in the plotting class. 
 
 ### Detector Variations 
 
@@ -233,18 +233,18 @@ Detector variations are handled by [NuePlots_DetSys.ipynb](https://github.com/Wo
 
 The basic procedure is:
 * Take the `nue`, `ncpi0` and `ccpi0` central value (CV) detvar sample and weight it up to a fixed POT (by default, `1e21` is taken)
-* Given a selection query, a plotting variable (field) and the x-axis range, create a new number of bins to optimise statistics: if less than 8 bins, keep bins, otherwise, reduce the number of bins with factor 2. For the `nu` sample, follow the same procedure but take a single bin due to low statistics after selection.
+* Given a selection query, a plotting variable (field) and the x-axis range, create a new number of bins to optimise statistics: if less than eight bins, keep bins, otherwise, reduce the number of bins with factor 2. For the `nu` sample, follow the same procedure but take a single bin due to low statistics after selection.
 * For the CV variation, with this binning, calculate the histogram.
 * For each variation, calculate the histogram and compare with the CV. If the difference is within one sigma combined statistical error of both samples, ignore the difference for that bin/variation. If it is larger, keep it.
 * Sum the differences in quadrature over the different variations for each bin.
 * Go back to the original binning:
   * Do nothing if the binning is the same as the original
-  * Otherwise, divide the difference over the 2 bins proportional to the CV sample.
+  * Otherwise, divide the difference over the two bins proportional to the CV sample.
 * Add the four samples (`nu`, `nue`, `ncpi0`, `ccpi0`) in quadrature
 * The result, the error per bin, gets stored in a dictionary.
 * Access this dictionary with the plotter class and scale to the POT of the plot.
 
-This is fully automated by running the data to simulation plots first. In this step, requests will be added to the dictionary that keeps track of the detector variations. Now, run the cell in [NuePlots_DetSys.ipynb](https://github.com/Wouter-VDP/nuecc_python/blob/master/NuePlots_DetSys.ipynb) that calls `detvar.get_syt_var` for every combination. This will calculate the detecotr variations for all the plots we want to make and update the dictionary file accordingly. Finally, rerun the data to simulation comparison plots. THhe dictionary should not contain the detector variations and they will be included in the plots.
+This is fully automated by running the data to simulation plots first. In this step, requests will be added to the dictionary that keeps track of the detector variations. Now, run the cell in [NuePlots_DetSys.ipynb](https://github.com/Wouter-VDP/nuecc_python/blob/master/NuePlots_DetSys.ipynb) that calls `detvar.get_syt_var` for every combination. This will calculate the detector variations for all the plots we want to make and update the dictionary file accordingly. Finally, rerun the data to simulation comparison plots. The dictionary should not contain the detector variations, and they will be included in the plots.
 
 # Done
 
