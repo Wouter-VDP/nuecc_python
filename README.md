@@ -117,6 +117,8 @@ The electron neutrino selection is performed on the `daughters` entry of the dic
 * preselect: True for all daughters in an event that passes the preselection cuts, which are defined by `query_preselect` in [helpers/helpfunction.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/helpfunction.py).
 * select: True for e_candidate daughters that pass the full BDT-based selection. This selection is parametrised by a single cut value on the event BDT response, defined as `cut_val` in [nue_selection_helper.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/nue_selection_helper.py).
 
+The preselect stage also requires a fiducial volume, this is defined in [helpers/helpfunction.py#L66-L72](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/helpfunction.py#L66-L72).
+
 After applying the selection on the samples of interest, we end up with maximum three `pckl` files, which should be located in `intput/*/lite/`:
 * `after_training.pckl`
 * `sys_after_training.pckl`
@@ -142,6 +144,18 @@ Which will create `after_training.pckl` including the `plot_samples` list as key
 <a name="bdttraining"></a>
 
 The inclusive electron neutrino selection contains three boosted decision trees. These are modelled by the [XGBoost](https://xgboost.readthedocs.io/en/latest/) package and the trained models are stored in [models/](https://github.com/Wouter-VDP/nuecc_python/tree/master/models).
+
+The training is performed in the bulk of [NueSelection.ipynb](https://github.com/Wouter-VDP/nuecc_python/blob/master/NueSelection.ipynb) and requires an input file called `training_new.pckl` which can be created by [helpers/gpvm/Merger.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/helpers/gpvm/Merger.py). One should be extremely carefull not to have any duplicated events between `training_new.pckl` and `nu_new.pckl`. In the past, the training set consisted of unused filters, Run 2 overlay samples, low-energy electron neutrino samples and the redundant events (as replaced by the filters) in the Run 1 and Run 3 BNB nu overlay events. No data was used in the training process. Note that these combinations are not set in stone and one is free to construct a training data-set as pleased as long as it is disjunct from the plotting data-sets.
+
+The configuration of the selection is identical to [nue_selection_helper.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/nue_selection_helper.py) but is excecuted step-by-step to enhance the tunability and intermediate outputs of the selection. Note that [NueSelection.ipynb](https://github.com/Wouter-VDP/nuecc_python/blob/master/NueSelection.ipynb) is the only place in the framework where I think there is some code duplication that could be reduced by using the definitions defined in [nue_selection_helper.py](https://github.com/Wouter-VDP/nuecc_python/blob/master/nue_selection_helper.py).
+
+Additionaly there are a set of configurable parameters connected to the training:
+* `retrain` (bool): retrain the three XGBoost models. 
+* `train_ana` (bool): perform a scan over a set of tree depths to determine the omptimal depth. This is needed to produce the plots in [output/training](https://github.com/Wouter-VDP/nuecc_python/tree/master/output/training)created by `nue_helper.helper.analyse_training`
+seed = 7
+test_size = 0.05
+lee_focus = 1.0
+train_sample = "train_new"
 
 ## Plotting the outcome
 
