@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import uproot
 import scipy.stats
-from helpers import plot_dicts_nue
+# from helpers import plot_dicts_nue
 from helpers import plot_dicts_numu
 from helpers import helpfunction
 import matplotlib.patches as patches
@@ -89,7 +89,7 @@ class Plotter:
                 data[beam_on]["E1DCNT_wcut"] = pot_dict["E1DCNT_wcut"]
             if "EXT" in pot_dict:
                 data["off"]["EXT"] = pot_dict["EXT"]
-        self.title_str = r"MicroBooNE {:.1e}$\,$POT, Preliminary".format(
+        self.title_str = r"MicroBooNE {:.1e}$\,$POT, Internal".format(
             data[beam_on]["pot"]
         ).replace("+", "")
 
@@ -264,6 +264,7 @@ class Plotter:
         query="",
         title_str="",
         legend=True,
+        legend_in=False,
         y_max_scaler=1.025,
         kind="cat",
         show_data=True,
@@ -297,7 +298,7 @@ class Plotter:
         """
         if show_lee is None:
             show_lee = self.show_lee
-        if title_str is not "":
+        if title_str != "":
             title_str = "\n" + title_str
 
         plot_data = []
@@ -529,7 +530,10 @@ class Plotter:
         ax[1].set_xlabel(x_label)
 
         if legend:
-            ax[0].legend(bbox_to_anchor=(1.02, 0.5), loc="center left")
+            if legend_in:
+                ax[0].legend(loc='best', frameon=False)
+            else:
+                ax[0].legend(bbox_to_anchor=(1.02, 0.5), loc="center left", frameon=False)
         best_text_loc = get_best_text_loc(prediction, N_bins)
 
         return ratio, purity, ks_test_p, cnp, best_text_loc
@@ -764,7 +768,7 @@ def add_text(ax, which, locator, y=1):
     text_str = []
     if which[0] is not None:
         ratio = which[0]
-        text_str.append(r"(On-Off)/MC: {:.2f}$\pm${:.2f}".format(ratio[0], ratio[2]))
+#         text_str.append(r"(On-Off)/MC: {:.2f}$\pm${:.2f}".format(ratio[0], ratio[2]))
     if which[3] is not None:
         (cnp_chi, cnp_p, dof) = which[3]
         text_str.append(

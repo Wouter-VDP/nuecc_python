@@ -48,12 +48,12 @@ pop_cols = {
 
     "trk_distance_v",
 
-    "trk_theta_v",
-    "trk_phi_v",
+#     "trk_theta_v",
+#     "trk_phi_v",
 
-    "trk_dir_x_v",
-    "trk_dir_y_v",
-    "trk_dir_z_v",
+#     "trk_dir_x_v",
+#     "trk_dir_y_v",
+#     "trk_dir_z_v",
 
     "trk_end_x_v",
     "trk_end_y_v",
@@ -63,7 +63,7 @@ pop_cols = {
     "trk_sce_end_y_v",
     "trk_sce_end_z_v",
 
-    "trk_len_v",
+#     "trk_len_v",
 
     "trk_bragg_p_v",
     "trk_bragg_mu_v",

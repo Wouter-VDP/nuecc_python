@@ -240,6 +240,8 @@ def AddNumuCategories(daughters):
     q_10 = "true_fid_vol & ccnc==0 & abs(nu_pdg)==12"    
     
     q_5 = "true_fid_vol==0"
+    
+    q_44 = "~(" + " | ".join(["("+q_30+")", "("+q_31+")", "("+q_32+")", "("+q_33+")", "("+q_34+")"]) + ")"
 
     daughters["category"] = (
         daughters.eval(q_30) * 30
@@ -247,13 +249,13 @@ def AddNumuCategories(daughters):
         + daughters.eval(q_32) * 32
         + daughters.eval(q_33) * 33
         + daughters.eval(q_34) * 34
+        + daughters.eval(q_44) * 44
         + daughters.eval(q_35) * 35
         + daughters.eval(q_10) * 10
         + daughters.eval(q_5) * 5
     )
     cosmic = (daughters["nu_purity_from_pfp"] < 0.5) & (daughters["category"] != 5)
     daughters.loc[cosmic, "category"] = 4
-#     daughters["category"][cosmic] = 4
 
 # Generate the pckl file used by the plotter
 def CreateAfterTraining(plot_samples, input_dir, one_file=True):
